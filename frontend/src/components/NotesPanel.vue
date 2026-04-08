@@ -47,6 +47,14 @@
           <button class="tbtn" @click="insertMd('- ','')" title="列表">•</button>
           <div class="tsep" />
           <button class="tbtn" :class="{ active: preview }" @click="preview = !preview" title="预览">👁</button>
+          <div class="tsep" />
+          <button
+            class="tbtn btn-save"
+            :class="{ saving: saving, unsaved: hasUnsavedChanges }"
+            @click="doSave"
+            :disabled="!selected || saving"
+            title="保存 (Ctrl+S)"
+          >{{ saving ? '···' : hasUnsavedChanges ? '●' : '✓' }}</button>
           <div style="flex:1" />
           <span class="save-status">{{ saveStatus }}</span>
         </div>
@@ -58,7 +66,6 @@
             v-if="!preview"
             ref="ta"
             v-model="content"
-            @input="onContentChange"
             placeholder="开始写作..."
             spellcheck="false"
           />
@@ -70,7 +77,7 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { listNotes, getNote, saveNote, deleteNote } from '../api/index.js'
 
 const props = defineProps({ selectedKey: String })
@@ -79,20 +86,33 @@ const emit = defineEmits(['select'])
 const notes = ref([])
 const selected = ref(null)
 const content = ref('')
+const savedContent = ref('')
 const search = ref('')
 const loading = ref(true)
 const creating = ref(false)
 const preview = ref(false)
+const saving = ref(false)
 const saveStatus = ref('')
 const ta = ref(null)
 
-let saveTimer = null
+const hasUnsavedChanges = computed(() =>
+  selected.value && content.value !== savedContent.value
+)
 
 const filteredNotes = computed(() =>
   notes.value.filter(n => n.name.toLowerCase().includes(search.value.toLowerCase()))
 )
 
 onMounted(loadNotes)
+
+function onKeyDown(e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault()
+    if (selected.value && !saving.value) doSave()
+  }
+}
+onMounted(() => { window.addEventListener('keydown', onKeyDown) })
+onUnmounted(() => { window.removeEventListener('keydown', onKeyDown) })
 
 async function loadNotes() {
   try { notes.value = await listNotes() }
@@ -103,7 +123,9 @@ async function loadNotes() {
 async function selectNote(note) {
   selected.value = { ...note }
   content.value = await getNote(note.key)
+  savedContent.value = content.value
   preview.value = false
+  saveStatus.value = ''
   emit('select', note.key)
 }
 
@@ -135,23 +157,20 @@ async function removeNote(note) {
   } catch (e) { console.error('删除失败', e) }
 }
 
-function onContentChange() {
-  if (!selected.value) return
-  clearTimeout(saveTimer)
-  saveStatus.value = ''
-  saveTimer = setTimeout(doSave, 1500)
-}
-
 async function doSave() {
-  if (!selected.value) return
+  if (!selected.value || saving.value) return
+  saving.value = true
   try {
     saveStatus.value = '保存中...'
     await saveNote(selected.value.key, content.value)
-    saveStatus.value = '已保存'
+    savedContent.value = content.value
+    saveStatus.value = '已保存 ✓'
     setTimeout(() => { saveStatus.value = '' }, 2000)
   } catch (e) {
     saveStatus.value = '保存失败'
     console.error(e)
+  } finally {
+    saving.value = false
   }
 }
 
@@ -219,6 +238,12 @@ const renderedMd = computed(() => {
 .tbtn.active { color: var(--accent); }
 .tsep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 .save-status { font-size: 11px; color: var(--green); }
+
+.btn-save { transition: all .2s; }
+.btn-save.unsaved { color: var(--yellow); }
+.btn-save.unsaved:hover { background: var(--yellow); color: #11111b; }
+.btn-save.saving { color: var(--muted); }
+.btn-save:disabled:not(.unsaved):not(.saving) { opacity: .4; }
 .editor-title { padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .editor-title input { width: 100%; background: transparent; border: none; font-size: 16px; font-weight: 600; color: var(--text); padding: 0; }
 .editor-title input:focus { outline: none; }
