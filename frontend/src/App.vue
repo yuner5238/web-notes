@@ -1,117 +1,54 @@
-﻿<template>
+<template>
   <div class="app">
-    <!-- Microsoft Config Modal -->
-    <div v-if="showMsConfigModal" class="modal-overlay" @click.self="showMsConfigModal = false">
-      <div class="modal-box">
-        <div class="modal-header">
-          <span class="modal-icon">&#128274;</span>
-          <h2>配置 Microsoft 登录</h2>
-        </div>
-        <div class="modal-body">
-          <p class="modal-desc">要使用待办事项功能，需要配置 Microsoft Graph API。</p>
-          <div class="config-steps">
-            <div class="step">
-              <span class="step-num">1</span>
-              <div class="step-text">
-                <strong>注册 Azure 应用</strong><br>
-                访问 <a href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade" target="_blank">Azure 门户</a>，点击"新建注册"
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-num">2</span>
-              <div class="step-text">
-                <strong>设置重定向 URI</strong><br>
-                在"身份验证"中添加：<code>http://localhost:3001/api/auth/callback</code>
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-num">3</span>
-              <div class="step-text">
-                <strong>添加 API 权限</strong><br>
-                添加 Microsoft Graph → <code>Tasks.ReadWrite</code>、<code>User.Read</code>、<code>offline_access</code>
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-num">4</span>
-              <div class="step-text">
-                <strong>创建客户端密钥</strong><br>
-                在"证书和密码"中新建密钥，复制其值
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-num">5</span>
-              <div class="step-text">
-                <strong>填写配置文件</strong><br>
-                编辑 <code>server/.env</code>：
-                <div class="code-block">
-MS_CLIENT_ID=你的应用程序(客户端)ID<br>
-MS_CLIENT_SECRET=你创建的密钥值<br>
-MS_TENANT_ID=common<br>
-MS_REDIRECT_URI=http://localhost:3001/api/auth/callback
-                </div>
-              </div>
-            </div>
-            <div class="step">
-              <span class="step-num">6</span>
-              <div class="step-text">
-                <strong>重启服务</strong><br>
-                重启后端 <code>npm run dev</code> 后重新点击登录
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-primary" @click="showMsConfigModal = false">知道了</button>
-        </div>
-      </div>
-    </div>
-
-    <header class="app-header">
-      <div class="header-brand">
-        <span class="brand-icon">&#128221;</span>
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <span class="brand-icon">📝</span>
         <span class="brand-name">WebNotes</span>
       </div>
-      <nav class="header-nav">
-        <button
-          class="nav-btn"
-          :class="{ active: leftPanel === 'notes' }"
-          @click="leftPanel = 'notes'"
-        >
-          <span>&#128214;</span> 笔记
-        </button>
-        <button
-          class="nav-btn"
-          :class="{ active: leftPanel === 'todos' }"
-          @click="leftPanel = 'todos'"
-        >
-          <span>&#9745;</span> 待办
-        </button>
-      </nav>
-      <div class="header-actions">
+      <div class="topbar-actions">
         <template v-if="!isLoggedIn">
-          <button class="btn-login" @click="handleLogin">
-            &#128274; 登录微软账号
-          </button>
+          <button class="btn-login" @click="handleLogin">登录</button>
         </template>
         <template v-else>
           <span class="user-name">{{ userName }}</span>
-          <button class="btn-icon" @click="handleLogout" title="登出">&#128682;</button>
+          <button class="btn-logout" @click="handleLogout">退出</button>
         </template>
       </div>
     </header>
 
-    <main class="app-body">
-      <div class="panel-left" :class="leftPanel === 'notes' ? 'panel-notes' : 'panel-todos'">
-        <NotesPanel
-          :selectedKey="selectedNoteKey"
-          @select="onSelectNote"
-        />
-      </div>
-      <div class="panel-divider" />
-      <div class="panel-right">
-        <TodoPanel :isLoggedIn="isLoggedIn" />
-      </div>
+    <!-- Content Area -->
+    <main class="content">
+      <NotesPanel
+        v-show="activeTab === 'notes'"
+        :selectedKey="selectedNoteKey"
+        @select="onSelectNote"
+      />
+      <TodoPanel
+        v-show="activeTab === 'todos'"
+        :isLoggedIn="isLoggedIn"
+      />
     </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tabbar">
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'notes' }"
+        @click="activeTab = 'notes'"
+      >
+        <span class="tab-icon">📖</span>
+        <span class="tab-label">笔记</span>
+      </button>
+      <button
+        class="tab-btn"
+        :class="{ active: activeTab === 'todos' }"
+        @click="activeTab = 'todos'"
+      >
+        <span class="tab-icon">✅</span>
+        <span class="tab-label">待办</span>
+      </button>
+    </nav>
   </div>
 </template>
 
@@ -121,24 +58,17 @@ import NotesPanel from './components/NotesPanel.vue'
 import TodoPanel from './components/TodoPanel.vue'
 import { getAuthStatus, login, logout, getCurrentUser } from './api/auth.js'
 
-const leftPanel = ref('notes')
+const activeTab = ref('notes')
 const isLoggedIn = ref(false)
 const userName = ref('')
 const selectedNoteKey = ref(null)
-const showMsConfigModal = ref(false)
 
 onMounted(async () => {
-  // Check URL params
   const params = new URLSearchParams(window.location.search)
-  if (params.get('ms_error')) {
-    showMsConfigModal.value = true
-    window.history.replaceState({}, '', window.location.pathname)
-  }
   if (params.get('auth') === 'ok') {
     window.history.replaceState({}, '', window.location.pathname)
   }
 
-  // Check auth status
   try {
     const status = await getAuthStatus()
     isLoggedIn.value = status.authenticated
@@ -165,100 +95,134 @@ function onSelectNote(key) {
 </script>
 
 <style scoped>
-.app { display: flex; flex-direction: column; height: 100vh; background: var(--bg-base); }
-
-.app-header {
-  display: flex; align-items: center; height: 52px; padding: 0 16px;
-  background: var(--bg-mantle); border-bottom: 1px solid var(--border);
-  flex-shrink: 0; gap: 16px;
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  background: var(--bg-base);
+  max-width: 100vw;
+  overflow: hidden;
 }
 
-.header-brand { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 15px; min-width: 140px; }
-.header-brand .brand-icon { font-size: 18px; }
-
-.header-nav { display: flex; gap: 4px; flex: 1; }
-
-.nav-btn {
-  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
-  border-radius: var(--radius-sm); background: transparent;
-  color: var(--muted); font-size: 13px; font-weight: 500;
+/* ── Top Bar ── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  background: var(--bg-mantle);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
-.nav-btn:hover { background: var(--bg-overlay); color: var(--text); }
-.nav-btn.active { background: var(--bg-overlay); color: var(--accent); }
 
-.header-actions { display: flex; align-items: center; gap: 8px; min-width: 180px; justify-content: flex-end; }
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-icon { font-size: 20px; }
+
+.brand-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
 .btn-login {
-  display: flex; align-items: center; gap: 6px; padding: 6px 14px;
-  border-radius: var(--radius-sm); background: var(--accent); color: #11111b;
-  font-size: 13px; font-weight: 600;
+  padding: 6px 16px;
+  border-radius: 20px;
+  background: var(--accent);
+  color: #11111b;
+  font-size: 13px;
+  font-weight: 600;
 }
+
 .btn-login:hover { background: var(--accent-hover); }
 
-.btn-icon {
-  display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: var(--radius-sm);
-  background: transparent; color: var(--muted); font-size: 16px;
+.user-name {
+  font-size: 13px;
+  color: var(--subtext);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.btn-icon:hover { background: var(--bg-overlay); color: var(--text); }
 
-.user-name { font-size: 13px; color: var(--subtext); }
+.btn-logout {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: var(--bg-overlay);
+  color: var(--muted);
+  font-size: 12px;
+}
 
-.app-body { display: flex; flex: 1; overflow: hidden; }
-.panel-left { display: flex; flex-direction: column; overflow: hidden; }
-.panel-left.panel-notes { flex: 3; }
-.panel-left.panel-todos { flex: 1.2; }
-.panel-right { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.panel-divider { width: 1px; background: var(--border); flex-shrink: 0; }
+.btn-logout:hover {
+  color: var(--red);
+}
 
-/* Modal */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.6);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000; backdrop-filter: blur(4px);
+/* ── Content ── */
+.content {
+  flex: 1;
+  overflow: hidden;
 }
-.modal-box {
-  background: var(--bg-surface); border: 1px solid var(--border);
-  border-radius: 12px; width: 560px; max-height: 85vh;
-  display: flex; flex-direction: column; overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0,0,0,.5);
+
+/* ── Bottom Tab Bar ── */
+.tabbar {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  height: 56px;
+  padding: 0 24px;
+  background: var(--bg-mantle);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  padding-bottom: env(safe-area-inset-bottom);
 }
-.modal-header {
-  display: flex; align-items: center; gap: 12px;
-  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+
+.tab-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 72px;
+  padding: 6px 20px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  transition: all 0.2s;
 }
-.modal-icon { font-size: 28px; }
-.modal-header h2 { font-size: 16px; font-weight: 600; color: var(--text); }
-.modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
-.modal-desc { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
-.config-steps { display: flex; flex-direction: column; gap: 14px; }
-.step { display: flex; gap: 12px; align-items: flex-start; }
-.step-num {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: var(--accent); color: #11111b;
-  font-size: 12px; font-weight: 700; display: flex;
-  align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
+
+.tab-btn:active {
+  transform: scale(0.95);
 }
-.step-text { font-size: 13px; color: var(--subtext); line-height: 1.6; }
-.step-text strong { color: var(--text); }
-.step-text a { color: var(--accent); }
-.step-text code {
-  background: var(--bg-overlay); padding: 1px 5px; border-radius: 3px;
-  font-size: 11px; color: var(--green); font-family: monospace;
+
+.tab-icon {
+  font-size: 20px;
+  transition: transform 0.2s;
 }
-.code-block {
-  margin-top: 8px; background: var(--bg-mantle);
-  border: 1px solid var(--border); border-radius: 6px;
-  padding: 10px 12px; font-family: monospace; font-size: 11px;
-  color: var(--green); line-height: 1.8; white-space: pre-wrap;
+
+.tab-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
-.modal-footer {
-  padding: 14px 24px; border-top: 1px solid var(--border);
-  display: flex; justify-content: flex-end;
+
+.tab-btn.active {
+  color: var(--accent);
+  background: var(--bg-overlay);
 }
-.btn-primary {
-  padding: 8px 20px; background: var(--accent); color: #11111b;
-  border-radius: var(--radius); font-size: 13px; font-weight: 600;
+
+.tab-btn.active .tab-icon {
+  transform: scale(1.1);
 }
-.btn-primary:hover { background: var(--accent-hover); }
 </style>
