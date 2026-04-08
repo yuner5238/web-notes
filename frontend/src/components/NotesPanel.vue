@@ -46,6 +46,14 @@
           <button class="tbtn" @click="insertMd('`','`')" title="行内代码">&lt;/&gt;</button>
           <button class="tbtn" @click="insertMd('- ','')" title="列表">•</button>
           <div class="tsep" />
+          <div class="mode-group">
+            <button class="tbtn mode-btn" :class="{ active: mode === 'source' }" @click="setMode('source')" title="源码 (Ctrl+E)">✍</button>
+            <button class="tbtn mode-btn" :class="{ active: mode === 'split' }" @click="setMode('split')" title="分栏 (Ctrl+E)">⫷⫸</button>
+            <button class="tbtn mode-btn" :class="{ active: mode === 'preview' }" @click="setMode('preview')" title="阅读 (Ctrl+E)">👁</button>
+          </div>
+          <div class="tsep" />
+          <span v-if="mode !== 'source'" class="word-count">{{ wordCount }} 字</span>
+          <div style="flex:1" />
           <button
             class="tbtn btn-save"
             :class="{ saving: saving, unsaved: hasUnsavedChanges }"
@@ -53,14 +61,13 @@
             :disabled="!selected || saving"
             title="保存 (Ctrl+S)"
           >{{ saving ? '···' : hasUnsavedChanges ? '●' : '✓' }}</button>
-          <div style="flex:1" />
           <span class="save-status">{{ saveStatus }}</span>
         </div>
         <div class="editor-title">
           <input v-model="selected.name" type="text" readonly />
         </div>
         <div class="editor-split">
-          <div class="editor-pane editor-pane-write">
+          <div v-show="mode !== 'preview'" class="editor-pane editor-pane-write">
             <textarea
               ref="ta"
               v-model="content"
@@ -69,8 +76,8 @@
               @keydown="handleKeyDown"
             />
           </div>
-          <div class="editor-divider" />
-          <div class="editor-pane editor-pane-preview">
+          <div v-show="mode === 'split'" class="editor-divider" />
+          <div v-show="mode !== 'source'" class="editor-pane editor-pane-preview">
             <div class="md-body" v-html="renderedMd" />
           </div>
         </div>
@@ -99,6 +106,7 @@ const creating = ref(false)
 const saving = ref(false)
 const saveStatus = ref('')
 const ta = ref(null)
+const mode = ref('split') // 'source' | 'split' | 'preview'
 
 const hasUnsavedChanges = computed(() =>
   selected.value && content.value !== savedContent.value
@@ -107,6 +115,13 @@ const hasUnsavedChanges = computed(() =>
 const filteredNotes = computed(() =>
   notes.value.filter(n => n.name.toLowerCase().includes(search.value.toLowerCase()))
 )
+
+const wordCount = computed(() => content.value.trim() ? content.value.trim().replace(/\s+/g, '').length : 0)
+
+function setMode(m) {
+  mode.value = m
+  nextTick(() => { if (mode.value !== 'preview') ta.value?.focus() })
+}
 
 onMounted(loadNotes)
 
@@ -118,6 +133,10 @@ function handleKeyDown(e) {
     } else if (e.key === 'b') {
       e.preventDefault()
       insertMd('**', '**')
+    } else if (e.key === 'e') {
+      e.preventDefault()
+      const modes = ['source', 'split', 'preview']
+      setMode(modes[(modes.indexOf(mode.value) + 1) % modes.length])
     }
   }
 }
@@ -246,6 +265,11 @@ const renderedMd = computed(() => {
 .btn-save.unsaved:hover { background: var(--yellow); color: #11111b; }
 .btn-save.saving { color: var(--muted); }
 .btn-save:disabled:not(.unsaved):not(.saving) { opacity: .4; }
+.mode-group { display: flex; border-radius: var(--radius-sm); overflow: hidden; }
+.mode-btn { border-radius: 0; width: 28px; height: 28px; }
+.mode-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.mode-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.word-count { font-size: 11px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
 .editor-title { padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .editor-title input { width: 100%; background: transparent; border: none; font-size: 16px; font-weight: 600; color: var(--text); padding: 0; }
 .editor-title input:focus { outline: none; }
