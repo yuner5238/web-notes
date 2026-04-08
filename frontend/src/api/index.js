@@ -1,4 +1,9 @@
-﻿const BASE = '/api';
+﻿// 自动检测环境
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// 本地开发：API 请求到 localhost:5173 (Vite proxy) 或 localhost:3001
+// 云端部署：API 请求到 /api (同域，由 Worker 处理)
+const BASE = isLocal ? '/api' : '/api';
 
 // Fetch wrapper with error handling
 async function api(path, options = {}) {

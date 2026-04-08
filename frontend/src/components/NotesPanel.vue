@@ -84,8 +84,8 @@
 
         <!-- 编辑区分栏布局 -->
         <div class="editor-split">
-          <!-- 源码编辑区（textarea） -->
-          <div v-show="mode !== 'preview'" class="editor-pane editor-pane-write">
+          <!-- 源码模式：textarea -->
+          <div v-if="mode === 'source'" class="editor-pane editor-pane-write">
             <textarea
               ref="ta"
               v-model="content"
@@ -95,24 +95,44 @@
             />
           </div>
 
-          <div v-show="mode === 'split'" class="editor-divider" />
+          <!-- 分栏模式：textarea + contenteditable -->
+          <template v-else-if="mode === 'split'">
+            <div class="editor-pane editor-pane-write">
+              <textarea
+                ref="ta"
+                v-model="content"
+                placeholder="开始写作..."
+                spellcheck="false"
+                @keydown="handleKeyDown"
+              />
+            </div>
+            <div class="editor-divider" />
+            <div class="editor-pane editor-pane-preview">
+              <div
+                ref="richEl"
+                class="rich-editor"
+                contenteditable="true"
+                spellcheck="false"
+                data-placeholder="开始写作..."
+                @input="onRichInput"
+                @keydown="handleRichKeyDown"
+                @mouseup="syncSelection"
+                @keyup="syncSelection"
+              />
+            </div>
+          </template>
 
-          <!-- 阅读/富文本编辑区 -->
-          <div v-show="mode !== 'source'" class="editor-pane editor-pane-preview">
-            <!-- contenteditable 富文本编辑层 -->
+          <!-- 实时模式：WYSIWYG 富文本编辑（Markdown 渲染显示） -->
+          <div v-else class="editor-pane editor-pane-preview">
             <div
               ref="richEl"
-              class="rich-editor"
+              class="rich-editor rich-editor-live"
               contenteditable="true"
               spellcheck="false"
-              :data-placeholder="'开始写作...'"
+              data-placeholder="开始写作..."
               @input="onRichInput"
               @keydown="handleRichKeyDown"
-              @mouseup="syncSelection"
-              @keyup="syncSelection"
             />
-            <!-- 纯预览层（md 渲染） -->
-            <div v-show="mode === 'preview'" class="rich-preview" v-html="renderedMd" />
           </div>
         </div>
 
