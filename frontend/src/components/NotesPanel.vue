@@ -77,8 +77,9 @@
             />
           </div>
           <div v-show="mode === 'split'" class="editor-divider" />
-          <div v-show="mode !== 'source'" class="editor-pane editor-pane-preview">
+          <div v-show="mode !== 'source'" class="editor-pane editor-pane-preview" @click="onPreviewClick" title="点击进入编辑">
             <div class="md-body" v-html="renderedMd" />
+            <div v-if="mode === 'preview'" class="preview-hint">点击任意处可编辑</div>
           </div>
         </div>
       </template>
@@ -121,6 +122,10 @@ const wordCount = computed(() => content.value.trim() ? content.value.trim().rep
 function setMode(m) {
   mode.value = m
   nextTick(() => { if (mode.value !== 'preview') ta.value?.focus() })
+}
+
+function onPreviewClick() {
+  if (mode.value === 'preview') setMode('source')
 }
 
 onMounted(loadNotes)
@@ -270,6 +275,13 @@ const renderedMd = computed(() => {
 .mode-btn:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
 .mode-btn:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
 .word-count { font-size: 11px; color: var(--muted); padding: 0 6px; white-space: nowrap; }
+.preview-hint {
+  position: fixed; bottom: 20px; right: 24px;
+  font-size: 11px; color: var(--muted);
+  background: var(--bg-overlay); padding: 4px 10px;
+  border-radius: 20px; border: 1px solid var(--border);
+  opacity: .6; pointer-events: none;
+}
 .editor-title { padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .editor-title input { width: 100%; background: transparent; border: none; font-size: 16px; font-weight: 600; color: var(--text); padding: 0; }
 .editor-title input:focus { outline: none; }
