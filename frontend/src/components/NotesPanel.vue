@@ -37,16 +37,14 @@
       </div>
       <template v-else>
         <div class="editor-toolbar">
-          <button class="tbtn" @click="insertMd('**','**')" title="加粗">B</button>
+          <button class="tbtn" @click="insertMd('**','**')" title="加粗 (Ctrl+B)"><b>B</b></button>
           <button class="tbtn" @click="insertMd('_','_')" title="斜体"><em>I</em></button>
           <div class="tsep" />
           <button class="tbtn" @click="insertMd('## ','')" title="H1">H1</button>
           <button class="tbtn" @click="insertMd('### ','')" title="H2">H2</button>
           <div class="tsep" />
-          <button class="tbtn" @click="insertMd('`','`')" title="代码">&lt;/&gt;</button>
+          <button class="tbtn" @click="insertMd('`','`')" title="行内代码">&lt;/&gt;</button>
           <button class="tbtn" @click="insertMd('- ','')" title="列表">•</button>
-          <div class="tsep" />
-          <button class="tbtn" :class="{ active: preview }" @click="preview = !preview" title="预览">👁</button>
           <div class="tsep" />
           <button
             class="tbtn btn-save"
@@ -61,15 +59,20 @@
         <div class="editor-title">
           <input v-model="selected.name" type="text" readonly />
         </div>
-        <div class="editor-body">
-          <textarea
-            v-if="!preview"
-            ref="ta"
-            v-model="content"
-            placeholder="开始写作..."
-            spellcheck="false"
-          />
-          <div v-else class="editor-preview" v-html="renderedMd" />
+        <div class="editor-split">
+          <div class="editor-pane editor-pane-write">
+            <textarea
+              ref="ta"
+              v-model="content"
+              placeholder="开始写作..."
+              spellcheck="false"
+              @keydown="handleKeyDown"
+            />
+          </div>
+          <div class="editor-divider" />
+          <div class="editor-pane editor-pane-preview">
+            <div class="md-body" v-html="renderedMd" />
+          </div>
         </div>
       </template>
     </div>
@@ -78,7 +81,10 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { marked } from 'marked'
 import { listNotes, getNote, saveNote, deleteNote } from '../api/index.js'
+
+marked.setOptions({ breaks: true, gfm: true })
 
 const props = defineProps({ selectedKey: String })
 const emit = defineEmits(['select'])
@@ -90,7 +96,6 @@ const savedContent = ref('')
 const search = ref('')
 const loading = ref(true)
 const creating = ref(false)
-const preview = ref(false)
 const saving = ref(false)
 const saveStatus = ref('')
 const ta = ref(null)
@@ -105,14 +110,19 @@ const filteredNotes = computed(() =>
 
 onMounted(loadNotes)
 
-function onKeyDown(e) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    e.preventDefault()
-    if (selected.value && !saving.value) doSave()
+function handleKeyDown(e) {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === 's') {
+      e.preventDefault()
+      if (selected.value && !saving.value) doSave()
+    } else if (e.key === 'b') {
+      e.preventDefault()
+      insertMd('**', '**')
+    }
   }
 }
-onMounted(() => { window.addEventListener('keydown', onKeyDown) })
-onUnmounted(() => { window.removeEventListener('keydown', onKeyDown) })
+onMounted(() => { window.addEventListener('keydown', handleKeyDown) })
+onUnmounted(() => { window.removeEventListener('keydown', handleKeyDown) })
 
 async function loadNotes() {
   try { notes.value = await listNotes() }
@@ -124,7 +134,6 @@ async function selectNote(note) {
   selected.value = { ...note }
   content.value = await getNote(note.key)
   savedContent.value = content.value
-  preview.value = false
   saveStatus.value = ''
   emit('select', note.key)
 }
@@ -193,15 +202,8 @@ function formatDate(d) {
 }
 
 const renderedMd = computed(() => {
-  return content.value
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/\n/g, '<br>')
+  try { return marked.parse(content.value || '') }
+  catch { return '<p style="color:red">渲染错误</p>' }
 })
 </script>
 
@@ -247,17 +249,34 @@ const renderedMd = computed(() => {
 .editor-title { padding: 10px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
 .editor-title input { width: 100%; background: transparent; border: none; font-size: 16px; font-weight: 600; color: var(--text); padding: 0; }
 .editor-title input:focus { outline: none; }
-.editor-body { flex: 1; overflow: hidden; display: flex; }
-.editor-body textarea { flex: 1; padding: 16px 20px; font-family: monospace; font-size: 14px; line-height: 1.8; background: transparent; border: none; color: var(--text); }
-.editor-body textarea:focus { outline: none; }
-.editor-preview { flex: 1; padding: 16px 20px; overflow-y: auto; font-size: 14px; line-height: 1.8; }
-.editor-preview :deep(h1) { color: var(--accent-hover); font-size: 1.6em; margin: .6em 0 .3em; }
-.editor-preview :deep(h2) { color: var(--accent-hover); font-size: 1.3em; margin: .6em 0 .3em; }
-.editor-preview :deep(h3) { color: var(--accent-hover); font-size: 1.1em; margin: .6em 0 .3em; }
-.editor-preview :deep(p) { margin: .5em 0; }
-.editor-preview :deep(code) { background: var(--bg-overlay); padding: 1px 5px; border-radius: 3px; font-size: .88em; color: var(--green); font-family: monospace; }
-.editor-preview :deep(ul) { padding-left: 20px; margin: .5em 0; }
-.editor-preview :deep(li) { margin: .25em 0; }
-.editor-preview :deep(strong) { color: var(--accent); }
-.editor-preview :deep(em) { color: var(--yellow); }
+.editor-split { flex: 1; display: flex; overflow: hidden; }
+.editor-pane { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+.editor-pane-write textarea {
+  flex: 1; width: 100%; padding: 16px 20px;
+  font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 14px; line-height: 1.8; background: transparent;
+  border: none; color: var(--text); resize: none;
+}
+.editor-pane-write textarea:focus { outline: none; }
+.editor-divider { width: 1px; background: var(--border); flex-shrink: 0; }
+.editor-pane-preview { overflow-y: auto; }
+.md-body {
+  padding: 16px 24px; font-size: 14px; line-height: 1.8; color: var(--text);
+}
+.md-body :deep(h1) { color: var(--accent-hover); font-size: 1.7em; margin: .8em 0 .3em; border-bottom: 1px solid var(--border); padding-bottom: .2em; }
+.md-body :deep(h2) { color: var(--accent-hover); font-size: 1.35em; margin: .7em 0 .25em; border-bottom: 1px solid var(--border); padding-bottom: .15em; }
+.md-body :deep(h3) { color: var(--accent-hover); font-size: 1.1em; margin: .6em 0 .25em; }
+.md-body :deep(p) { margin: .6em 0; }
+.md-body :deep(ul), .md-body :deep(ol) { padding-left: 24px; margin: .5em 0; }
+.md-body :deep(li) { margin: .3em 0; }
+.md-body :deep(code) { background: var(--bg-overlay); padding: 1px 6px; border-radius: 4px; font-size: .88em; color: var(--green); font-family: 'Fira Code', monospace; }
+.md-body :deep(pre) { background: var(--bg-overlay); padding: 14px 16px; border-radius: 8px; overflow-x: auto; margin: .8em 0; }
+.md-body :deep(pre code) { background: none; padding: 0; font-size: .9em; }
+.md-body :deep(blockquote) { border-left: 3px solid var(--accent); padding-left: 14px; margin: .8em 0; color: var(--muted); }
+.md-body :deep(strong) { color: var(--accent); }
+.md-body :deep(a) { color: var(--accent); text-decoration: underline; }
+.md-body :deep(hr) { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+.md-body :deep(table) { border-collapse: collapse; width: 100%; margin: .8em 0; }
+.md-body :deep(th), .md-body :deep(td) { border: 1px solid var(--border); padding: 6px 12px; }
+.md-body :deep(th) { background: var(--bg-overlay); font-weight: 600; }
 </style>
