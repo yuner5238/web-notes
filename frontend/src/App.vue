@@ -3,8 +3,11 @@
     <!-- Top Bar -->
     <header class="topbar">
       <div class="topbar-brand">
-        <span class="brand-icon">📝</span>
-        <span class="brand-name">WebNotes</span>
+        <div class="brand-row">
+          <span class="brand-icon">📝</span>
+          <span class="brand-name">WebNotes</span>
+        </div>
+        <span class="brand-version">v202604090943</span>
       </div>
       <div class="topbar-actions">
         <template v-if="!isLoggedIn">
@@ -119,6 +122,12 @@ function onSelectNote(key) {
 
 .topbar-brand {
   display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand-row {
+  display: flex;
   align-items: center;
   gap: 8px;
 }
@@ -129,6 +138,12 @@ function onSelectNote(key) {
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
+}
+
+.brand-version {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
 }
 
 .topbar-actions {
