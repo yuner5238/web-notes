@@ -1,4 +1,4 @@
-# WebNotes - 笔记与待办应用
+# WebNotes
 
 ## 项目简介
 
