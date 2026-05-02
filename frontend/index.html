@@ -167,14 +167,12 @@
     }
 
     /* 源码模式 */
-    .editor-area.source-mode {
-      display: flex;
-      justify-content: center;
-      padding: 20px 60px;
-    }
     .source-textarea {
-      width: 100%;
       max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
       background: var(--bg-app);
       border: 1px solid var(--border);
       border-radius: 6px;
@@ -316,17 +314,17 @@
               </div>
             </div>
             <div class="editor-container">
+              <div class="editor-toolbar">
+                <button class="toolbar-btn" onclick="insertLine('# ')" title="标题">H</button>
+                <button class="toolbar-btn" onclick="insertFormat('**')" title="加粗"><b>B</b></button>
+                <button class="toolbar-btn" onclick="insertFormat('*')" title="斜体"><i>I</i></button>
+                <button class="toolbar-btn" onclick="insertFormat('&#96;')" title="行内代码">&lt;/&gt;</button>
+                <div class="toolbar-sep"></div>
+                <button class="toolbar-btn" onclick="insertLine('- ')" title="列表">•</button>
+                <button class="toolbar-btn" onclick="insertLine('- [ ] ')" title="待办">☐</button>
+                <button class="toolbar-btn" onclick="insertLine('> ')" title="引用">"</button>
+              </div>
               ${editorMode === 'wysiwyg' ? `
-                <div class="editor-toolbar">
-                  <button class="toolbar-btn" onclick="insertLine('# ')" title="标题">H</button>
-                  <button class="toolbar-btn" onclick="insertFormat('**')" title="加粗"><b>B</b></button>
-                  <button class="toolbar-btn" onclick="insertFormat('*')" title="斜体"><i>I</i></button>
-                  <button class="toolbar-btn" onclick="insertCodeBlock()" title="代码">&lt;/&gt;</button>
-                  <div class="toolbar-sep"></div>
-                  <button class="toolbar-btn" onclick="insertLine('- ')" title="列表">•</button>
-                  <button class="toolbar-btn" onclick="insertLine('- [ ] ')" title="待办">☐</button>
-                  <button class="toolbar-btn" onclick="insertLine('> ')" title="引用">"</button>
-                </div>
                 <div class="editor-area">
                   <div class="editor-content" id="editor" contenteditable="true" spellcheck="false"></div>
                 </div>
@@ -836,9 +834,29 @@
     }
 
     function insertLine(prefix) {
-      // 只在 WYSIWYG 模式下工作
-      if (editorMode !== 'wysiwyg') return;
+      if (editorMode === 'source') {
+        // 源码模式：插入到 textarea
+        const textarea = document.getElementById('source-editor');
+        if (!textarea) return;
+        
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        
+        // 在当前行开头插入 prefix
+        let lineStart = text.lastIndexOf('\n', start - 1) + 1;
+        textarea.value = text.substring(0, lineStart) + prefix + text.substring(lineStart);
+        
+        // 移动光标到插入后位置
+        textarea.selectionStart = textarea.selectionEnd = start + prefix.length;
+        textarea.focus();
+        
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+        return;
+      }
 
+      // WYSIWYG 模式
       const editor = document.getElementById('editor');
       if (!editor) return;
 
@@ -868,9 +886,40 @@
     }
 
     function insertFormat(wrapper) {
-      // 只在 WYSIWYG 模式下工作
-      if (editorMode !== 'wysiwyg') return;
+      // 处理 HTML 实体转义
+      wrapper = wrapper.replace(/&grave;/g, '`').replace(/&#96;/g, '`');
+      
+      if (editorMode === 'source') {
+        // 源码模式：插入 Markdown 语法到 textarea
+        const textarea = document.getElementById('source-editor');
+        if (!textarea) return;
+        
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = textarea.value;
+        const selectedText = text.substring(start, end);
+        
+        let newText;
+        if (selectedText) {
+          // 包裹选中文本
+          newText = text.substring(0, start) + wrapper + selectedText + wrapper + text.substring(end);
+          textarea.selectionStart = start + wrapper.length;
+          textarea.selectionEnd = start + wrapper.length + selectedText.length;
+        } else {
+          // 插入配对符号
+          newText = text.substring(0, start) + wrapper + wrapper + text.substring(end);
+          textarea.selectionStart = textarea.selectionEnd = start + wrapper.length;
+        }
+        
+        textarea.value = newText;
+        textarea.focus();
+        
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+        return;
+      }
 
+      // WYSIWYG 模式
       const editor = document.getElementById('editor');
       if (!editor) return;
 
@@ -888,7 +937,7 @@
 
       if (selectedText) {
         // 包裹选中文本，使用真正的 HTML 标签
-        const wrapperMap = { '**': 'strong', '*': 'em', '`': 'code' };
+        const wrapperMap = { '**': 'strong', '*': 'em', '&#96;': 'code' };
         const tag = wrapperMap[wrapper] || wrapper;
         const wrapperElement = document.createElement(tag);
         wrapperElement.textContent = selectedText;
