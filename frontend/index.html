@@ -106,18 +106,39 @@
     }
 
     /* 所见即所得编辑器 */
-    .editor-container { flex: 1; display: flex; overflow: hidden; position: relative; }
-    .editor-area { flex: 1; overflow-y: auto; padding: 40px 60px; }
+    .editor-container { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
+    .editor-area { flex: 1; overflow-y: auto; padding: 0 60px 0 0; min-height: 0; }
+    .editor-wrapper { display: flex; max-width: 720px; margin: 0 auto; width: 100%; min-height: 100%; }
+    .line-numbers {
+      width: 50px;
+      text-align: right;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      user-select: none;
+      flex-shrink: 0;
+      padding: 40px 12px 40px 20px;
+    }
+    .line-numbers span {
+      display: block;
+      height: calc(1.7 * 1em);
+    }
+    .line-numbers.mode-source {
+      padding: 40px 12px 40px 20px;
+      line-height: 1.7;
+    }
+    .editor-content-wrapper { flex: 1; padding: 40px 60px 40px 62px; }
     .editor-content {
-      max-width: 720px;
-      margin: 0 auto;
-      font-size: 15px;
+      font-family: var(--font-mono);
+      font-size: 14px;
       line-height: 1.7;
       outline: none;
       min-height: 100%;
     }
 
     /* Markdown 渲染样式 - 在编辑器内显示 */
+    .editor-content * { line-height: 1.7 !important; }
     .editor-content h1 { display: block !important; font-size: 1.8em !important; font-weight: 700 !important; margin: 0.8em 0 0.4em !important; padding-bottom: 0.2em !important; border-bottom: 1px solid var(--border) !important; color: #fff !important; }
     .editor-content h2 { display: block !important; font-size: 1.4em !important; font-weight: 600 !important; margin: 0.6em 0 0.3em !important; padding-bottom: 0.15em !important; border-bottom: 1px solid var(--border) !important; color: #fff !important; }
     .editor-content h3 { display: block !important; font-size: 1.15em !important; font-weight: 600 !important; margin: 0.5em 0 0.2em !important; color: #fff !important; }
@@ -167,25 +188,27 @@
     }
 
     /* 源码模式 */
+    .source-mode { flex: 1; display: flex; overflow: hidden; min-height: 0; }
+    .source-wrapper { display: flex; max-width: 720px; margin: 0 auto; width: 100%; height: 100%; }
     .source-textarea {
-      max-width: 720px;
-      margin: 0 auto;
-      width: 100%;
+      flex: 1;
       height: 100%;
-      min-height: 100%;
+      min-height: 0;
       background: var(--bg-app);
-      border: 1px solid var(--border);
-      border-radius: 6px;
+      border: none;
       color: var(--text);
       font-family: var(--font-mono);
       font-size: 14px;
       line-height: 1.7;
-      padding: 20px;
+      padding: 40px 60px 40px 62px;
       resize: none;
       outline: none;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     .source-textarea:focus {
-      border-color: var(--accent);
+      outline: none;
     }
 
     /* 模式切换按钮激活状态 */
@@ -256,6 +279,7 @@
   <div id="contextMenu"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
   <script>
     // 配置 marked.js
     marked.setOptions({
@@ -273,6 +297,20 @@
     let redoStack = []; // 重做栈
     let editorMode = 'wysiwyg'; // 'wysiwyg' 或 'source'
     const MAX_UNDO = 50;
+
+    // 保存事件处理器引用，用于清理
+    let editorEventHandlers = {
+      input: null,
+      keydown: null,
+      paste: null,
+      scroll: null
+    };
+    let sourceEventHandlers = {
+      input: null,
+      keydown: null,
+      scroll: null,
+      lineScroll: null
+    };
 
     function render() {
       document.getElementById('app').innerHTML = `
@@ -314,6 +352,7 @@
               </div>
             </div>
             <div class="editor-container">
+              ${editorMode === 'wysiwyg' ? `
               <div class="editor-toolbar">
                 <button class="toolbar-btn" onclick="insertLine('# ')" title="标题">H</button>
                 <button class="toolbar-btn" onclick="insertFormat('**')" title="加粗"><b>B</b></button>
@@ -324,13 +363,22 @@
                 <button class="toolbar-btn" onclick="insertLine('- [ ] ')" title="待办">☐</button>
                 <button class="toolbar-btn" onclick="insertLine('> ')" title="引用">"</button>
               </div>
+              ` : ''}
               ${editorMode === 'wysiwyg' ? `
                 <div class="editor-area">
-                  <div class="editor-content" id="editor" contenteditable="true" spellcheck="false"></div>
+                  <div class="editor-wrapper">
+                    <div class="line-numbers" id="wysiwyg-line-numbers"></div>
+                    <div class="editor-content-wrapper">
+                      <div class="editor-content" id="editor" contenteditable="true" spellcheck="false"></div>
+                    </div>
+                  </div>
                 </div>
               ` : `
-                <div class="editor-area source-mode">
-                  <textarea id="source-editor" class="source-textarea" spellcheck="false"></textarea>
+                <div class="source-mode">
+                  <div class="source-wrapper">
+                    <div class="line-numbers mode-source" id="source-line-numbers"></div>
+                    <textarea id="source-editor" class="source-textarea" spellcheck="false"></textarea>
+                  </div>
                 </div>
               `}
             </div>
@@ -347,6 +395,72 @@
       if (currentFile) initEditor(true);
     }
 
+    // 模式切换时保存/恢复光标位置
+    let savedCursorPosition = 0; // 记录源码模式的光标位置
+    let savedScrollPosition = 0; // 记录滚动位置
+
+    // 获取 contenteditable 中的光标位置（转换为近似字符位置）
+    function getCaretPosition(element) {
+      const selection = window.getSelection();
+      if (!selection.rangeCount) return 0;
+      
+      const range = selection.getRangeAt(0);
+      const preRange = range.cloneRange();
+      preRange.selectNodeContents(element);
+      preRange.setEnd(range.startContainer, range.startOffset);
+      return preRange.toString().length;
+    }
+
+    // 设置 contenteditable 中的光标位置
+    function setCaretPosition(element, position) {
+      try {
+        const selection = window.getSelection();
+        const range = document.createRange();
+        
+        let charCount = 0;
+        let found = false;
+        
+        function traverseNodes(node) {
+          if (found) return;
+          
+          if (node.nodeType === Node.TEXT_NODE) {
+            const nextCount = charCount + node.length;
+            if (position <= nextCount) {
+              range.setStart(node, position - charCount);
+              range.collapse(true);
+              found = true;
+            }
+            charCount = nextCount;
+          } else {
+            for (let child of node.childNodes) {
+              traverseNodes(child);
+              if (found) return;
+            }
+          }
+        }
+        
+        traverseNodes(element);
+        
+        if (!found) {
+          // 如果位置超出范围，将光标放在最后
+          const lastChild = element.lastChild;
+          if (lastChild) {
+            if (lastChild.nodeType === Node.TEXT_NODE) {
+              range.setStart(lastChild, lastChild.length);
+            } else {
+              range.selectNodeContents(element);
+              range.collapse(false);
+            }
+          }
+        }
+        
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } catch (e) {
+        console.log('设置光标位置失败:', e);
+      }
+    }
+
     // 切换编辑器模式
     function toggleEditorMode() {
       // 切换前先清除选区，避免问题
@@ -356,6 +470,10 @@
         // 从所见即所得切换到源码模式
         const editor = document.getElementById('editor');
         if (editor) {
+          // 保存滚动位置
+          savedScrollPosition = editor.scrollTop;
+          // 获取当前光标位置（近似字符位置）
+          savedCursorPosition = getCaretPosition(editor);
           rawMarkdown = htmlToMarkdown(editor.innerHTML);
         }
         editorMode = 'source';
@@ -363,11 +481,47 @@
         // 从源码模式切换到所见即所得
         const sourceEditor = document.getElementById('source-editor');
         if (sourceEditor) {
+          savedScrollPosition = sourceEditor.scrollTop;
+          savedCursorPosition = sourceEditor.selectionStart;
           rawMarkdown = sourceEditor.value;
         }
         editorMode = 'wysiwyg';
       }
       render();
+      
+      // 切换后恢复位置和行号
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (editorMode === 'wysiwyg') {
+            const editor = document.getElementById('editor');
+            const lineNumbersEl = document.getElementById('wysiwyg-line-numbers');
+            if (editor) {
+              editor.scrollTop = savedScrollPosition;
+              setCaretPosition(editor, savedCursorPosition);
+            }
+            if (lineNumbersEl) {
+              lineNumbersEl.scrollTop = savedScrollPosition;
+            }
+            updateWysiwygLineNumbers();
+          } else {
+            const sourceEditor = document.getElementById('source-editor');
+            const lineNumbersEl = document.getElementById('source-line-numbers');
+            if (sourceEditor) {
+              sourceEditor.scrollTop = savedScrollPosition;
+              sourceEditor.setSelectionRange(savedCursorPosition, savedCursorPosition);
+              sourceEditor.focus();
+            }
+            if (lineNumbersEl) {
+              lineNumbersEl.scrollTop = savedScrollPosition;
+              // 同步行号列高度与textarea一致
+              if (sourceEditor && lineNumbersEl) {
+                lineNumbersEl.style.height = sourceEditor.clientHeight + 'px';
+              }
+            }
+            updateSourceLineNumbers();
+          }
+        }, 50);
+      });
     }
 
     function renderFileList(filter = '') {
@@ -377,15 +531,19 @@
       // 置顶文件排在前面
       filtered.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
       el.innerHTML = filtered.map(f => {
-        const escapedName = f.name.replace(/'/g, "\\'");
+        // HTML 转义（用于显示和属性）
+        const htmlEscapedName = f.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        // JS 转义（用于 onclick）- 先 HTML 转义，再 JS 转义
+        const jsEscapedName = htmlEscapedName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         return `
         <div class="file-item ${currentFile?.name === f.name ? 'active' : ''} ${f.pinned ? 'pinned' : ''}"
-             onclick="openFile('${escapedName}')"
-             oncontextmenu="showFileMenu(event, '${escapedName}')">
+             data-name="${htmlEscapedName}"
+             onclick="openFile('${jsEscapedName}')"
+             oncontextmenu="showFileMenu(event, '${jsEscapedName}')">
           ${f.pinned ? '<svg class="pin-icon" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>' : ''}
           <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-          <span>${f.name.replace('.md', '')}</span>
-          <button class="file-delete-btn" onclick="event.stopPropagation(); deleteFileByName('${escapedName}')" title="删除">
+          <span>${htmlEscapedName.replace('.md', '')}</span>
+          <button class="file-delete-btn" onclick="event.stopPropagation(); deleteFileByName('${jsEscapedName}')" title="删除">
             <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
           </button>
         </div>
@@ -408,29 +566,153 @@
         const editor = document.getElementById('editor');
         if (!editor) return;
 
-        // 使用 marked 解析 Markdown 为 HTML
-        const html = marked.parse(rawMarkdown);
+        // 先移除旧的事件监听器
+        removeEditorEventListeners();
+
+        // 使用 marked 解析 Markdown 为 HTML，并防护 XSS
+        let html = marked.parse(rawMarkdown);
+        html = DOMPurify.sanitize(html);
         editor.innerHTML = html;
 
         // 初始化待办复选框点击事件
         initCheckboxListeners();
+        updateWysiwygLineNumbers();
 
         // 监听输入变化
         editor.addEventListener('input', handleInput);
         editor.addEventListener('keydown', handleKeydown);
         editor.addEventListener('paste', handlePaste);
+
+        // 同步滚动
+        editor.addEventListener('scroll', syncLineNumbersScroll);
+
+        // 保存处理器引用
+        editorEventHandlers = {
+          input: handleInput,
+          keydown: handleKeydown,
+          paste: handlePaste,
+          scroll: syncLineNumbersScroll
+        };
       } else {
         // 源码模式
         const sourceEditor = document.getElementById('source-editor');
         if (!sourceEditor) return;
 
+        // 先移除旧的事件监听器
+        removeSourceEventListeners();
+
         sourceEditor.value = rawMarkdown;
-        sourceEditor.addEventListener('input', (e) => {
+        updateSourceLineNumbers();
+
+        // 创建输入事件处理器
+        const sourceInputHandler = (e) => {
+          // 保存撤销状态
+          saveSourceUndoState();
           rawMarkdown = e.target.value;
           hasUnsavedChanges = true;
           updateSaveIndicator();
-        });
+          updateSourceLineNumbers();
+        };
+
+        sourceEditor.addEventListener('input', sourceInputHandler);
         sourceEditor.addEventListener('keydown', handleSourceKeydown);
+        sourceEditor.addEventListener('scroll', syncSourceLineNumbersScroll);
+
+        // 行号列滚动同步到textarea
+        const sourceLineNumbersEl = document.getElementById('source-line-numbers');
+        if (sourceLineNumbersEl) {
+          sourceLineNumbersEl.addEventListener('scroll', syncSourceEditorScroll);
+        }
+
+        // 保存处理器引用
+        sourceEventHandlers = {
+          input: sourceInputHandler,
+          keydown: handleSourceKeydown,
+          scroll: syncSourceLineNumbersScroll,
+          lineScroll: syncSourceEditorScroll
+        };
+      }
+    }
+
+    // 移除编辑器事件监听器
+    function removeEditorEventListeners() {
+      const editor = document.getElementById('editor');
+      if (!editor || !editorEventHandlers) return;
+      if (editorEventHandlers.input) editor.removeEventListener('input', editorEventHandlers.input);
+      if (editorEventHandlers.keydown) editor.removeEventListener('keydown', editorEventHandlers.keydown);
+      if (editorEventHandlers.paste) editor.removeEventListener('paste', editorEventHandlers.paste);
+      if (editorEventHandlers.scroll) editor.removeEventListener('scroll', editorEventHandlers.scroll);
+      editorEventHandlers = { input: null, keydown: null, paste: null, scroll: null };
+    }
+
+    // 移除源码编辑器事件监听器
+    function removeSourceEventListeners() {
+      const sourceEditor = document.getElementById('source-editor');
+      const sourceLineNumbersEl = document.getElementById('source-line-numbers');
+      if (!sourceEventHandlers) return;
+      if (sourceEditor) {
+        if (sourceEventHandlers.input) sourceEditor.removeEventListener('input', sourceEventHandlers.input);
+        if (sourceEventHandlers.keydown) sourceEditor.removeEventListener('keydown', sourceEventHandlers.keydown);
+        if (sourceEventHandlers.scroll) sourceEditor.removeEventListener('scroll', sourceEventHandlers.scroll);
+      }
+      if (sourceLineNumbersEl && sourceEventHandlers.lineScroll) {
+        sourceLineNumbersEl.removeEventListener('scroll', sourceEventHandlers.lineScroll);
+      }
+      sourceEventHandlers = { input: null, keydown: null, scroll: null, lineScroll: null };
+    }
+    
+    // 更新所见即所得模式的行号
+    function updateWysiwygLineNumbers() {
+      const lineNumbersEl = document.getElementById('wysiwyg-line-numbers');
+      const editor = document.getElementById('editor');
+      if (!lineNumbersEl || !editor) return;
+      
+      const lines = rawMarkdown.split('\n');
+      let html = '';
+      for (let i = 0; i < lines.length; i++) {
+        const isEmpty = lines[i].trim() === '';
+        html += `<span class="${isEmpty ? 'empty-line' : ''}">${i + 1}</span>`;
+      }
+      lineNumbersEl.innerHTML = html;
+    }
+    
+    // 更新源码模式的行号
+    function updateSourceLineNumbers() {
+      const lineNumbersEl = document.getElementById('source-line-numbers');
+      if (!lineNumbersEl) return;
+      
+      const lines = rawMarkdown.split('\n');
+      let html = '';
+      for (let i = 0; i < lines.length; i++) {
+        html += `<span>${i + 1}</span>`;
+      }
+      lineNumbersEl.innerHTML = html;
+    }
+    
+    // 同步所见即所得模式滚动
+    function syncLineNumbersScroll() {
+      const editor = document.getElementById('editor');
+      const lineNumbersEl = document.getElementById('wysiwyg-line-numbers');
+      if (editor && lineNumbersEl) {
+        lineNumbersEl.scrollTop = editor.scrollTop;
+      }
+    }
+    
+    // 同步源码模式滚动
+    function syncSourceLineNumbersScroll() {
+      const sourceEditor = document.getElementById('source-editor');
+      const lineNumbersEl = document.getElementById('source-line-numbers');
+      if (sourceEditor && lineNumbersEl) {
+        lineNumbersEl.scrollTop = sourceEditor.scrollTop;
+      }
+    }
+
+    // 反向同步：当行号列滚动时同步textarea
+    function syncSourceEditorScroll() {
+      const sourceEditor = document.getElementById('source-editor');
+      const lineNumbersEl = document.getElementById('source-line-numbers');
+      if (sourceEditor && lineNumbersEl) {
+        sourceEditor.scrollTop = lineNumbersEl.scrollTop;
       }
     }
 
@@ -439,6 +721,8 @@
       // Tab 键插入空格
       if (e.key === 'Tab') {
         e.preventDefault();
+        // 保存撤销状态
+        saveSourceUndoState();
         const start = e.target.selectionStart;
         const end = e.target.selectionEnd;
         e.target.value = e.target.value.substring(0, start) + '  ' + e.target.value.substring(end);
@@ -446,14 +730,22 @@
         rawMarkdown = e.target.value;
         hasUnsavedChanges = true;
         updateSaveIndicator();
+        updateSourceLineNumbers();
       }
     }
 
     // 初始化待办复选框点击事件
     function initCheckboxListeners() {
       const editor = document.getElementById('editor');
+      if (!editor) return;
       const checkboxes = editor.querySelectorAll('input[type="checkbox"]');
       checkboxes.forEach(cb => {
+        // 移除旧的事件监听器（防止重复绑定）
+        cb.replaceWith(cb.cloneNode(true));
+      });
+      // 重新获取复选框（cloneNode后需要重新获取）
+      const newCheckboxes = editor.querySelectorAll('input[type="checkbox"]');
+      newCheckboxes.forEach(cb => {
         cb.addEventListener('click', (e) => {
           e.stopPropagation();
           e.preventDefault();
@@ -464,23 +756,16 @@
           hasUnsavedChanges = true;
           rawMarkdown = htmlToMarkdown(editor.innerHTML);
           updateSaveIndicator();
-          // 重新渲染标题栏以更新撤销/重做按钮状态
-          render();
-          // 重新设置编辑器内容（保持光标位置）
-          const newEditor = document.getElementById('editor');
-          newEditor.innerHTML = marked.parse(rawMarkdown);
-          initCheckboxListeners();
+          // 只更新撤销/重做按钮状态，不重新渲染整个页面（避免清空undo栈）
+          updateUndoRedoButtons();
         });
       });
     }
 
     function handleInput(e) {
       const editor = e.target;
-      // 检查是否是因为复选框点击触发
-      if (e.inputType === undefined) {
-        // 保存撤销状态
-        saveUndoState();
-      }
+      // 保存撤销状态（每次输入都保存）
+      saveUndoState();
       // 标记为未保存
       hasUnsavedChanges = true;
       updateSaveIndicator();
@@ -488,6 +773,8 @@
       convertMarkdownHeadings(editor);
       // 将 HTML 内容转换回 Markdown
       rawMarkdown = htmlToMarkdown(editor.innerHTML);
+      // 更新行号
+      updateWysiwygLineNumbers();
     }
 
     // 检测并转换 Markdown 语法
@@ -550,7 +837,8 @@
         const todoMatch = text.match(/^[-*+]\s+\[([ xX])\]\s*(.*)/);
         if (todoMatch) {
           const checked = todoMatch[1].toLowerCase() === 'x';
-          const content = todoMatch[2].trim();
+          // 不使用 trim()，保留原始内容（包括空格）
+          const content = todoMatch[2];
 
           // 找到父级 ul 或创建新的
           let ul = p.previousElementSibling;
@@ -566,6 +854,7 @@
           checkbox.checked = checked;
           li.appendChild(checkbox);
           if (content) {
+            // 保留原有空格
             li.appendChild(document.createTextNode(' ' + content));
           }
 
@@ -581,15 +870,16 @@
         const listMatch = text.match(/^([-*+]|\d+\.)\s+(.*)/);
         if (listMatch) {
           const listChar = listMatch[1];
-          const content = listMatch[2].trim();
+          const content = listMatch[2];
 
           // 确定是 ul 还是 ol
           let list;
-          let ul = p.previousElementSibling;
           const isOrdered = /^\d+\.$/.test(listChar);
 
-          if (ul && ((isOrdered && ul.tagName === 'OL') || (!isOrdered && ul.tagName === 'UL'))) {
-            list = ul;
+          // 查找前一个兄弟元素是否为列表
+          let prevSibling = p.previousElementSibling;
+          if (prevSibling && ((isOrdered && prevSibling.tagName === 'OL') || (!isOrdered && prevSibling.tagName === 'UL'))) {
+            list = prevSibling;
           } else {
             list = isOrdered ? document.createElement('ol') : document.createElement('ul');
             p.parentNode.insertBefore(list, p);
@@ -608,7 +898,8 @@
         if (quoteMatch && quoteMatch[1]) {
           const content = quoteMatch[1].trim();
           const blockquote = document.createElement('blockquote');
-          blockquote.innerHTML = content + '<br>';
+          // 使用 textContent 避免 XSS
+          blockquote.textContent = content;
           p.replaceWith(blockquote);
           return;
         }
@@ -681,9 +972,18 @@
             // 如果当前列表项为空，删除它
             const cleanText = lineText.trim().replace(/^[*-+]\s\[\s*\]\s?/, '').replace(/^[*-+]\s/, '').trim();
             if (cleanText === '') {
+              const parentList = listItem.parentElement;
               const p = document.createElement('p');
               p.innerHTML = '<br>';
-              listItem.replaceWith(p);
+              listItem.remove();
+              // 如果列表变为空，删除整个列表容器
+              if (parentList && parentList.children.length === 0) {
+                parentList.remove();
+              }
+              // 在原位置插入空段落
+              if (parentList && parentList.parentElement) {
+                parentList.parentElement.insertBefore(p, parentList.nextSibling);
+              }
               range.setStart(p, 0);
               range.collapse(true);
               selection.removeAllRanges();
@@ -699,15 +999,17 @@
               const editor = document.getElementById('editor');
               const newLine = document.createElement('li');
               if (todoMatch) {
-                newLine.innerHTML = `${todoMatch[1]}${todoMatch[2]} [ ] `;
+                // 使用 textContent 避免 XSS
+                newLine.textContent = `${todoMatch[1]}${todoMatch[2]} [ ] `;
               } else {
-                newLine.innerHTML = `${listMatch[1]}${listMatch[2]} `;
+                // listMatch[1] 是空白字符，listMatch[2] 是列表标记，都是安全的
+                newLine.textContent = `${listMatch[1]}${listMatch[2]} `;
               }
 
-              // 找到最近的ul或ol
-              const list = editor.querySelector('ul, ol');
-              if (list) {
-                list.appendChild(newLine);
+              // 找到当前列表项所属的ul或ol（最近的列表容器）
+              const currentList = listItem.parentElement;
+              if (currentList && (currentList.tagName === 'UL' || currentList.tagName === 'OL')) {
+                currentList.appendChild(newLine);
                 setCursorAtEnd(newLine);
               } else {
                 const ul = document.createElement('ul');
@@ -745,48 +1047,147 @@
       updateUndoRedoButtons();
     }
 
+    // 保存源码模式撤销状态
+    function saveSourceUndoState() {
+      const sourceEditor = document.getElementById('source-editor');
+      if (!sourceEditor) return;
+      const state = {
+        markdown: sourceEditor.value,
+        html: marked.parse(sourceEditor.value)
+      };
+      // 避免重复保存相同状态
+      if (undoStack.length > 0 && undoStack[undoStack.length - 1].markdown === state.markdown) return;
+      undoStack.push(state);
+      if (undoStack.length > MAX_UNDO) {
+        undoStack.shift();
+      }
+      // 清空重做栈
+      redoStack = [];
+      updateUndoRedoButtons();
+    }
+
     // 撤销
     function undo() {
       if (undoStack.length === 0) return;
-      const editor = document.getElementById('editor');
-      if (!editor) return;
 
-      // 保存当前状态到重做栈
-      redoStack.push({
-        html: editor.innerHTML,
-        markdown: htmlToMarkdown(editor.innerHTML)
-      });
+      if (editorMode === 'source') {
+        // 源码模式撤销
+        const sourceEditor = document.getElementById('source-editor');
+        if (!sourceEditor) return;
 
-      // 恢复到上一个状态
-      const state = undoStack.pop();
-      editor.innerHTML = state.html;
-      rawMarkdown = state.markdown;
-      hasUnsavedChanges = true;
-      updateSaveIndicator();
-      updateUndoRedoButtons();
-      initCheckboxListeners();
+        // 保存当前状态到重做栈
+        redoStack.push({
+          markdown: sourceEditor.value,
+          html: marked.parse(sourceEditor.value)
+        });
+
+        // 恢复到上一个状态
+        const state = undoStack.pop();
+        if (state.markdown !== undefined) {
+          // markdown格式，直接使用
+          sourceEditor.value = state.markdown;
+          rawMarkdown = state.markdown;
+        } else {
+          // html格式，转换为markdown
+          const markdown = htmlToMarkdown(state.html);
+          sourceEditor.value = markdown;
+          rawMarkdown = markdown;
+        }
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+        updateSourceLineNumbers();
+        updateUndoRedoButtons();
+      } else {
+        // WYSIWYG模式撤销
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+
+        // 保存当前状态到重做栈
+        redoStack.push({
+          html: editor.innerHTML,
+          markdown: htmlToMarkdown(editor.innerHTML)
+        });
+
+        // 恢复到上一个状态
+        const state = undoStack.pop();
+        if (state.html !== undefined) {
+          // html格式，直接使用
+          editor.innerHTML = state.html;
+          rawMarkdown = state.markdown;
+        } else {
+          // markdown格式，转换为html
+          const html = marked.parse(state.markdown);
+          editor.innerHTML = DOMPurify.sanitize(html);
+          rawMarkdown = state.markdown;
+          initCheckboxListeners();
+        }
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+        updateWysiwygLineNumbers();
+        updateUndoRedoButtons();
+      }
     }
 
     // 重做
     function redo() {
       if (redoStack.length === 0) return;
-      const editor = document.getElementById('editor');
-      if (!editor) return;
 
-      // 保存当前状态到撤销栈
-      undoStack.push({
-        html: editor.innerHTML,
-        markdown: htmlToMarkdown(editor.innerHTML)
-      });
+      if (editorMode === 'source') {
+        // 源码模式重做
+        const sourceEditor = document.getElementById('source-editor');
+        if (!sourceEditor) return;
 
-      // 恢复到下一个状态
-      const state = redoStack.pop();
-      editor.innerHTML = state.html;
-      rawMarkdown = state.markdown;
-      hasUnsavedChanges = true;
-      updateSaveIndicator();
-      updateUndoRedoButtons();
-      initCheckboxListeners();
+        // 保存当前状态到撤销栈
+        undoStack.push({
+          markdown: sourceEditor.value,
+          html: marked.parse(sourceEditor.value)
+        });
+
+        // 恢复到下一个状态
+        const state = redoStack.pop();
+        if (state.markdown !== undefined) {
+          // markdown格式，直接使用
+          sourceEditor.value = state.markdown;
+          rawMarkdown = state.markdown;
+        } else {
+          // html格式，转换为markdown
+          const markdown = htmlToMarkdown(state.html);
+          sourceEditor.value = markdown;
+          rawMarkdown = markdown;
+        }
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+        updateSourceLineNumbers();
+        updateUndoRedoButtons();
+      } else {
+        // WYSIWYG模式重做
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+
+        // 保存当前状态到撤销栈
+        undoStack.push({
+          html: editor.innerHTML,
+          markdown: htmlToMarkdown(editor.innerHTML)
+        });
+
+        // 恢复到下一个状态
+        const state = redoStack.pop();
+        if (state.html !== undefined) {
+          // html格式，直接使用
+          editor.innerHTML = state.html;
+          rawMarkdown = state.markdown;
+        } else {
+          // markdown格式，转换为html
+          const html = marked.parse(state.markdown);
+          editor.innerHTML = DOMPurify.sanitize(html);
+          rawMarkdown = state.markdown;
+          initCheckboxListeners();
+        }
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+        updateWysiwygLineNumbers();
+        updateUndoRedoButtons();
+      }
     }
 
     // 更新撤销/重做按钮状态
@@ -819,6 +1220,8 @@
 
     function handlePaste(e) {
       e.preventDefault();
+      // 保存撤销状态
+      saveUndoState();
       const text = e.clipboardData.getData('text/plain');
       document.execCommand('insertText', false, text);
     }
@@ -838,21 +1241,27 @@
         // 源码模式：插入到 textarea
         const textarea = document.getElementById('source-editor');
         if (!textarea) return;
-        
+
+        // 保存撤销状态
+        saveSourceUndoState();
+
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const text = textarea.value;
-        
+
         // 在当前行开头插入 prefix
         let lineStart = text.lastIndexOf('\n', start - 1) + 1;
         textarea.value = text.substring(0, lineStart) + prefix + text.substring(lineStart);
-        
+
         // 移动光标到插入后位置
         textarea.selectionStart = textarea.selectionEnd = start + prefix.length;
         textarea.focus();
-        
+
+        // 同步更新 rawMarkdown
+        rawMarkdown = textarea.value;
         hasUnsavedChanges = true;
         updateSaveIndicator();
+        updateSourceLineNumbers();
         return;
       }
 
@@ -888,17 +1297,20 @@
     function insertFormat(wrapper) {
       // 处理 HTML 实体转义
       wrapper = wrapper.replace(/&grave;/g, '`').replace(/&#96;/g, '`');
-      
+
       if (editorMode === 'source') {
         // 源码模式：插入 Markdown 语法到 textarea
         const textarea = document.getElementById('source-editor');
         if (!textarea) return;
-        
+
+        // 保存撤销状态
+        saveSourceUndoState();
+
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const text = textarea.value;
         const selectedText = text.substring(start, end);
-        
+
         let newText;
         if (selectedText) {
           // 包裹选中文本
@@ -910,12 +1322,15 @@
           newText = text.substring(0, start) + wrapper + wrapper + text.substring(end);
           textarea.selectionStart = textarea.selectionEnd = start + wrapper.length;
         }
-        
+
         textarea.value = newText;
         textarea.focus();
-        
+
+        // 同步更新 rawMarkdown
+        rawMarkdown = textarea.value;
         hasUnsavedChanges = true;
         updateSaveIndicator();
+        updateSourceLineNumbers();
         return;
       }
 
@@ -1055,11 +1470,11 @@
             return Array.from(node.children).map(li => {
               const checkbox = li.querySelector('input[type="checkbox"]');
               // 直接获取文本内容，移除 input 标签后取剩余部分
-              const text = li.textContent || '';
+              let text = li.textContent || '';
               if (checkbox) {
                 const checked = checkbox.checked || checkbox.hasAttribute('checked');
-                // 移除可能的空前缀后获取实际内容
-                const content = text.trim();
+                // 清理多余空白：保留开头空格用于缩进，其余空白压缩为单个空格
+                const content = text.trim().replace(/\s+/g, ' ');
                 return `- [${checked ? 'x' : ' '}] ${content}`;
               }
               return `- ${text.trim()}`;
@@ -1095,6 +1510,7 @@
     async function loadFiles() {
       try {
         const res = await fetch(`${API}/notes`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         files = await res.json();
         render();
         // 自动打开第一个文件
@@ -1114,8 +1530,10 @@
       }
 
       try {
-        const res = await fetch(`${API}/notes/${name}`);
+        const res = await fetch(`${API}/notes/${encodeURIComponent(name)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         currentFile = await res.json();
+        // 重新渲染整个UI，确保显示编辑器
         render();
       } catch (e) { toast('打开失败'); }
     }
@@ -1138,11 +1556,12 @@
       }
 
       try {
-        await fetch(`${API}/notes/${currentFile.name}`, {
+        const res = await fetch(`${API}/notes/${encodeURIComponent(currentFile.name)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: rawMarkdown })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         // 保存成功后更新 currentFile.content，避免切换模式时数据丢失
         currentFile.content = rawMarkdown;
         hasUnsavedChanges = false;
@@ -1154,7 +1573,8 @@
     async function deleteFile() {
       if (!currentFile || !confirm('确定删除？')) return;
       try {
-        await fetch(`${API}/notes/${currentFile.name}`, { method: 'DELETE' });
+        const res = await fetch(`${API}/notes/${encodeURIComponent(currentFile.name)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         currentFile = null;
         await loadFiles();
         toast('已删除');
@@ -1164,7 +1584,8 @@
     async function deleteFileByName(name) {
       if (!confirm(`确定删除 "${name}"？`)) return;
       try {
-        await fetch(`${API}/notes/${name}`, { method: 'DELETE' });
+        const res = await fetch(`${API}/notes/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         if (currentFile?.name === name) currentFile = null;
         await loadFiles();
         toast('已删除');
@@ -1179,11 +1600,13 @@
       const menu = document.getElementById('contextMenu');
       const file = files.find(f => f.name === name);
       const isPinned = file?.pinned || false;
-      // 转义文件名中的单引号
-      const escapedName = name.replace(/'/g, "\\'");
+      // HTML 转义（用于显示）
+      const htmlEscapedName = name.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      // JS 转义（用于 onclick）- 先 HTML 转义，再 JS 转义
+      const jsEscapedName = htmlEscapedName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
       menu.innerHTML = `
-        <div class="context-menu-item" onclick="openFile('${escapedName}'); hideContextMenu()">
+        <div class="context-menu-item" onclick="openFile('${jsEscapedName}'); hideContextMenu()">
           <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
           打开
         </div>
@@ -1192,16 +1615,16 @@
           <svg viewBox="0 0 24 24"><path d="M3 5h2V3a1 1 0 0 0-2 0v2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2a1 1 0 0 0 0-2h-2V3zM5 5v2h2a1 1 0 0 0 0-2H5zM5 19h2v-2H5v2zm4-8h2V9H9v2z"/></svg>
           全选
         </div>
-        <div class="context-menu-item" onclick="toggleFileSelection('${escapedName}'); hideContextMenu()">
+        <div class="context-menu-item" onclick="toggleFileSelection('${jsEscapedName}'); hideContextMenu()">
           <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
           ${isFileSelected(name) ? '取消选择' : '选择'}
         </div>
-        <div class="context-menu-item" onclick="togglePin('${escapedName}'); hideContextMenu()">
+        <div class="context-menu-item" onclick="togglePin('${jsEscapedName}'); hideContextMenu()">
           <svg viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
           ${isPinned ? '取消置顶' : '置顶'}
         </div>
         <div class="context-menu-sep"></div>
-        <div class="context-menu-item danger" onclick="deleteFileByName('${escapedName}'); hideContextMenu()">
+        <div class="context-menu-item danger" onclick="deleteFileByName('${jsEscapedName}'); hideContextMenu()">
           <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           删除
         </div>
@@ -1233,11 +1656,18 @@
       }
       // 更新文件列表显示（高亮选中项）
       document.querySelectorAll('.file-item').forEach(item => {
-        const itemName = item.getAttribute('onclick')?.match(/'(\w+\.md)'/)?.[1];
-        if (itemName && selectedFiles.has(itemName)) {
-          item.classList.add('selected');
-        } else {
-          item.classList.remove('selected');
+        // 从 onclick 属性中提取原始文件名
+        const onclickAttr = item.getAttribute('onclick') || '';
+        const match = onclickAttr.match(/openFile\('([^']*)'\)/);
+        if (match) {
+          // 反转义：JS 转义 → HTML 转义 → 原始字符
+          let itemName = match[1].replace(/\\'/g, "'").replace(/\\\\/g, '\\');
+          itemName = itemName.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+          if (selectedFiles.has(itemName)) {
+            item.classList.add('selected');
+          } else {
+            item.classList.remove('selected');
+          }
         }
       });
     }
@@ -1260,15 +1690,17 @@
       try {
         // 如果文件没有 content，说明是从列表获取的，需要先获取完整内容
         if (file.content === undefined) {
-          const res = await fetch(`${API}/notes/${name}`);
+          const res = await fetch(`${API}/notes/${encodeURIComponent(name)}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const fullFile = await res.json();
           file.content = fullFile.content || '';
         }
-        await fetch(`${API}/notes/${name}`, {
+        const res = await fetch(`${API}/notes/${encodeURIComponent(name)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content: file.content, pinned: !file.pinned })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         // 更新本地文件状态
         file.pinned = !file.pinned;
         await loadFiles();
@@ -1300,11 +1732,12 @@
       if (!name || name === '.md') return;
       const content = `# ${name.replace('.md', '')}\n\n`;
       try {
-        await fetch(`${API}/notes/${name}`, {
+        const res = await fetch(`${API}/notes/${encodeURIComponent(name)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content })
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         document.getElementById('modal').innerHTML = '';
         await loadFiles();
         await openFile(name);
@@ -1325,16 +1758,16 @@
         e.preventDefault();
         saveFile();
       }
-      // Ctrl+Z 撤销（防止在编辑器外触发）
+      // Ctrl+Z 撤销
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
-        if (document.activeElement.closest('.editor-content')) {
+        if (document.activeElement.closest('.editor-content') || document.activeElement.id === 'source-editor') {
           e.preventDefault();
           undo();
         }
       }
       // Ctrl+Y 或 Ctrl+Shift+Z 重做
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
-        if (document.activeElement.closest('.editor-content')) {
+        if (document.activeElement.closest('.editor-content') || document.activeElement.id === 'source-editor') {
           e.preventDefault();
           redo();
         }
