@@ -105,10 +105,47 @@
       background: #f44336;
     }
 
-    /* 所见即所得编辑器 */
-    .editor-container { flex: 1; display: flex; overflow: hidden; position: relative; min-height: 0; }
-    .editor-area { flex: 1; overflow-y: auto; padding: 0 60px 0 0; min-height: 0; }
-    .editor-wrapper { display: flex; max-width: 720px; margin: 0 auto; width: 100%; min-height: 100%; }
+    /* 编辑器通用结构 */
+    .editor-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-height: 0; }
+    
+    /* 统一滚动区域 - 包含行号和内容 */
+    .editor-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+    }
+    
+    /* 编辑器主容器 - 行号和内容同行 */
+    .editor-wrapper { 
+      display: flex; 
+      max-width: 720px; 
+      margin: 0 auto; 
+      width: 100%; 
+      min-height: 100%;
+      align-items: flex-start;
+    }
+    
+    /* 源码模式 - 行号和内容铺满全屏 */
+    .editor-wrapper:has(.source-textarea) {
+      max-width: none;
+      margin: 0;
+      height: 100%;
+    }
+    .editor-wrapper:has(.source-textarea) .editor-content-wrapper {
+      padding: 0;
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      height: 100%;
+    }
+    
+    /* 源码模式滚动区域 */
+    .editor-container:has(.source-textarea) .editor-scroll-area {
+      height: 100%;
+    }
+    
+    /* 行号通用样式 */
     .line-numbers {
       width: 50px;
       text-align: right;
@@ -122,13 +159,34 @@
     }
     .line-numbers span {
       display: block;
-      height: calc(1.7 * 1em);
+      height: calc(14px * 1.7);
     }
-    .line-numbers.mode-source {
-      padding: 40px 12px 40px 20px;
+    
+    /* 源码模式行号容器 - 独立滚动 */
+    .source-line-numbers {
+      width: 50px;
+      flex-shrink: 0;
+      background: var(--bg-app);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 14px;
       line-height: 1.7;
+      text-align: right;
+      padding: 40px 12px 40px 20px;
+      user-select: none;
+      overflow: hidden;
+      height: 100%;
+      box-sizing: border-box;
     }
+    .source-line-numbers span {
+      display: block;
+      height: calc(14px * 1.7);
+    }
+    
+    /* 内容区域 - 统一padding */
     .editor-content-wrapper { flex: 1; padding: 40px 60px 40px 62px; }
+    
+    /* 所见即所得内容 */
     .editor-content {
       font-family: var(--font-mono);
       font-size: 14px;
@@ -187,13 +245,11 @@
       font-weight: bold !important;
     }
 
-    /* 源码模式 */
-    .source-mode { flex: 1; display: flex; overflow: hidden; min-height: 0; }
-    .source-wrapper { display: flex; max-width: 720px; margin: 0 auto; width: 100%; height: 100%; }
+    /* 源码模式 - 铺满全屏 */
     .source-textarea {
       flex: 1;
+      width: 100%;
       height: 100%;
-      min-height: 0;
       background: var(--bg-app);
       border: none;
       color: var(--text);
@@ -203,9 +259,10 @@
       padding: 40px 60px 40px 62px;
       resize: none;
       outline: none;
-      overflow-y: auto;
       white-space: pre-wrap;
       word-wrap: break-word;
+      overflow: auto;
+      box-sizing: border-box;
     }
     .source-textarea:focus {
       outline: none;
@@ -352,7 +409,6 @@
               </div>
             </div>
             <div class="editor-container">
-              ${editorMode === 'wysiwyg' ? `
               <div class="editor-toolbar">
                 <button class="toolbar-btn" onclick="insertLine('# ')" title="标题">H</button>
                 <button class="toolbar-btn" onclick="insertFormat('**')" title="加粗"><b>B</b></button>
@@ -363,24 +419,19 @@
                 <button class="toolbar-btn" onclick="insertLine('- [ ] ')" title="待办">☐</button>
                 <button class="toolbar-btn" onclick="insertLine('> ')" title="引用">"</button>
               </div>
-              ` : ''}
-              ${editorMode === 'wysiwyg' ? `
-                <div class="editor-area">
-                  <div class="editor-wrapper">
+              <div class="editor-scroll-area">
+                <div class="editor-wrapper">
+                  ${editorMode === 'wysiwyg' ? `
                     <div class="line-numbers" id="wysiwyg-line-numbers"></div>
                     <div class="editor-content-wrapper">
                       <div class="editor-content" id="editor" contenteditable="true" spellcheck="false"></div>
                     </div>
-                  </div>
-                </div>
-              ` : `
-                <div class="source-mode">
-                  <div class="source-wrapper">
-                    <div class="line-numbers mode-source" id="source-line-numbers"></div>
+                  ` : `
+                    <div class="source-line-numbers" id="source-line-numbers"></div>
                     <textarea id="source-editor" class="source-textarea" spellcheck="false"></textarea>
-                  </div>
+                  `}
                 </div>
-              `}
+              </div>
             </div>
           ` : `
             <div class="empty-state">
@@ -466,13 +517,23 @@
       // 切换前先清除选区，避免问题
       window.getSelection()?.removeAllRanges();
 
+      // 保存当前模式的滚动位置
+      if (editorMode === 'wysiwyg') {
+        const scrollArea = document.querySelector('.editor-scroll-area');
+        if (scrollArea) {
+          savedScrollPosition = scrollArea.scrollTop;
+        }
+      } else {
+        const sourceEditor = document.getElementById('source-editor');
+        if (sourceEditor) {
+          savedScrollPosition = sourceEditor.scrollTop;
+        }
+      }
+
       if (editorMode === 'wysiwyg') {
         // 从所见即所得切换到源码模式
         const editor = document.getElementById('editor');
         if (editor) {
-          // 保存滚动位置
-          savedScrollPosition = editor.scrollTop;
-          // 获取当前光标位置（近似字符位置）
           savedCursorPosition = getCaretPosition(editor);
           rawMarkdown = htmlToMarkdown(editor.innerHTML);
         }
@@ -481,7 +542,6 @@
         // 从源码模式切换到所见即所得
         const sourceEditor = document.getElementById('source-editor');
         if (sourceEditor) {
-          savedScrollPosition = sourceEditor.scrollTop;
           savedCursorPosition = sourceEditor.selectionStart;
           rawMarkdown = sourceEditor.value;
         }
@@ -493,19 +553,27 @@
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (editorMode === 'wysiwyg') {
-            const editor = document.getElementById('editor');
-            const lineNumbersEl = document.getElementById('wysiwyg-line-numbers');
-            if (editor) {
-              editor.scrollTop = savedScrollPosition;
-              setCaretPosition(editor, savedCursorPosition);
+            // 恢复到所见即所得模式
+            const newScrollArea = document.querySelector('.editor-scroll-area');
+            const lineNumbersEl = document.querySelector('.line-numbers');
+            
+            if (newScrollArea) {
+              newScrollArea.scrollTop = savedScrollPosition;
             }
             if (lineNumbersEl) {
               lineNumbersEl.scrollTop = savedScrollPosition;
             }
+            
+            const editor = document.getElementById('editor');
+            if (editor) {
+              setCaretPosition(editor, savedCursorPosition);
+            }
             updateWysiwygLineNumbers();
           } else {
+            // 恢复到源码模式
             const sourceEditor = document.getElementById('source-editor');
             const lineNumbersEl = document.getElementById('source-line-numbers');
+            
             if (sourceEditor) {
               sourceEditor.scrollTop = savedScrollPosition;
               sourceEditor.setSelectionRange(savedCursorPosition, savedCursorPosition);
@@ -513,10 +581,6 @@
             }
             if (lineNumbersEl) {
               lineNumbersEl.scrollTop = savedScrollPosition;
-              // 同步行号列高度与textarea一致
-              if (sourceEditor && lineNumbersEl) {
-                lineNumbersEl.style.height = sourceEditor.clientHeight + 'px';
-              }
             }
             updateSourceLineNumbers();
           }
@@ -583,15 +647,12 @@
         editor.addEventListener('keydown', handleKeydown);
         editor.addEventListener('paste', handlePaste);
 
-        // 同步滚动
-        editor.addEventListener('scroll', syncLineNumbersScroll);
-
         // 保存处理器引用
         editorEventHandlers = {
           input: handleInput,
           keydown: handleKeydown,
           paste: handlePaste,
-          scroll: syncLineNumbersScroll
+          scroll: null
         };
       } else {
         // 源码模式
@@ -616,49 +677,50 @@
 
         sourceEditor.addEventListener('input', sourceInputHandler);
         sourceEditor.addEventListener('keydown', handleSourceKeydown);
-        sourceEditor.addEventListener('scroll', syncSourceLineNumbersScroll);
 
-        // 行号列滚动同步到textarea
-        const sourceLineNumbersEl = document.getElementById('source-line-numbers');
-        if (sourceLineNumbersEl) {
-          sourceLineNumbersEl.addEventListener('scroll', syncSourceEditorScroll);
-        }
+        // 源码模式：textarea 自身滚动，行号跟随
+        const sourceScrollHandler = () => syncSourceLineNumbersScroll();
+        sourceEditor.addEventListener('scroll', sourceScrollHandler);
 
         // 保存处理器引用
         sourceEventHandlers = {
           input: sourceInputHandler,
           keydown: handleSourceKeydown,
-          scroll: syncSourceLineNumbersScroll,
-          lineScroll: syncSourceEditorScroll
+          scroll: sourceScrollHandler
         };
+      }
+      
+      // 所见即所得模式：滚动容器滚动，行号跟随
+      if (editorMode === 'wysiwyg') {
+        const scrollArea = document.querySelector('.editor-scroll-area');
+        if (scrollArea) {
+          scrollArea.addEventListener('scroll', syncLineNumbersScroll);
+        }
       }
     }
 
     // 移除编辑器事件监听器
     function removeEditorEventListeners() {
       const editor = document.getElementById('editor');
+      const scrollArea = document.querySelector('.editor-scroll-area');
       if (!editor || !editorEventHandlers) return;
       if (editorEventHandlers.input) editor.removeEventListener('input', editorEventHandlers.input);
       if (editorEventHandlers.keydown) editor.removeEventListener('keydown', editorEventHandlers.keydown);
       if (editorEventHandlers.paste) editor.removeEventListener('paste', editorEventHandlers.paste);
-      if (editorEventHandlers.scroll) editor.removeEventListener('scroll', editorEventHandlers.scroll);
+      if (scrollArea) scrollArea.removeEventListener('scroll', syncLineNumbersScroll);
       editorEventHandlers = { input: null, keydown: null, paste: null, scroll: null };
     }
 
     // 移除源码编辑器事件监听器
     function removeSourceEventListeners() {
       const sourceEditor = document.getElementById('source-editor');
-      const sourceLineNumbersEl = document.getElementById('source-line-numbers');
       if (!sourceEventHandlers) return;
       if (sourceEditor) {
         if (sourceEventHandlers.input) sourceEditor.removeEventListener('input', sourceEventHandlers.input);
         if (sourceEventHandlers.keydown) sourceEditor.removeEventListener('keydown', sourceEventHandlers.keydown);
         if (sourceEventHandlers.scroll) sourceEditor.removeEventListener('scroll', sourceEventHandlers.scroll);
       }
-      if (sourceLineNumbersEl && sourceEventHandlers.lineScroll) {
-        sourceLineNumbersEl.removeEventListener('scroll', sourceEventHandlers.lineScroll);
-      }
-      sourceEventHandlers = { input: null, keydown: null, scroll: null, lineScroll: null };
+      sourceEventHandlers = { input: null, keydown: null, scroll: null };
     }
     
     // 更新所见即所得模式的行号
@@ -690,29 +752,21 @@
     }
     
     // 同步所见即所得模式滚动
+    // 统一滚动同步 - 由父容器滚动，行号自动跟随
     function syncLineNumbersScroll() {
-      const editor = document.getElementById('editor');
-      const lineNumbersEl = document.getElementById('wysiwyg-line-numbers');
-      if (editor && lineNumbersEl) {
-        lineNumbersEl.scrollTop = editor.scrollTop;
+      const scrollArea = document.querySelector('.editor-scroll-area');
+      const lineNumbersEl = document.querySelector('.line-numbers');
+      if (scrollArea && lineNumbersEl) {
+        lineNumbersEl.scrollTop = scrollArea.scrollTop;
       }
     }
     
-    // 同步源码模式滚动
+    // 同步源码模式滚动 - textarea 滚动，行号跟随
     function syncSourceLineNumbersScroll() {
       const sourceEditor = document.getElementById('source-editor');
       const lineNumbersEl = document.getElementById('source-line-numbers');
       if (sourceEditor && lineNumbersEl) {
         lineNumbersEl.scrollTop = sourceEditor.scrollTop;
-      }
-    }
-
-    // 反向同步：当行号列滚动时同步textarea
-    function syncSourceEditorScroll() {
-      const sourceEditor = document.getElementById('source-editor');
-      const lineNumbersEl = document.getElementById('source-line-numbers');
-      if (sourceEditor && lineNumbersEl) {
-        sourceEditor.scrollTop = lineNumbersEl.scrollTop;
       }
     }
 
