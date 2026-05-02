@@ -1,0 +1,1298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>笔记</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-app: #1a1a1b;
+      --bg-sidebar: #222223;
+      --bg-hover: #2d2d2e;
+      --bg-active: #094771;
+      --border: #37373d;
+      --text: #c5c5c5;
+      --text-muted: #787878;
+      --accent: #529CCA;
+      --font-ui: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: var(--font-ui); background: var(--bg-app); color: var(--text); font-size: 14px; }
+
+    .app { display: flex; height: 100vh; }
+
+    /* 侧边栏 */
+    .sidebar { width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 12px 14px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-header svg { width: 14px; height: 14px; cursor: pointer; opacity: 0.6; }
+    .sidebar-header svg:hover { opacity: 1; }
+    .search-container { padding: 0 10px 10px; }
+    .search-input { width: 100%; padding: 8px 12px; background: #3c3c3c; border: 1px solid transparent; border-radius: 4px; color: var(--text); font-size: 14px; outline: none; }
+    .search-input:focus { border-color: var(--accent); }
+    .file-list { flex: 1; overflow-y: auto; padding: 0 6px; }
+    .file-list::-webkit-scrollbar { width: 6px; }
+    .file-item { padding: 6px 10px 6px 26px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 14px; }
+    .file-item:hover { background: var(--bg-hover); }
+    .file-item.active { background: var(--bg-active); }
+    .file-item svg { width: 14px; height: 14px; fill: var(--accent); flex-shrink: 0; }
+    .file-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-item { position: relative; }
+    .file-item .pin-icon { width: 12px; height: 12px; fill: var(--accent); flex-shrink: 0; margin-right: 4px; }
+    .file-delete-btn {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%) scale(0);
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: #f44336;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.2s ease;
+    }
+    .file-delete-btn svg { width: 14px; height: 14px; fill: #fff; }
+    .file-item:hover .file-delete-btn { transform: translateY(-50%) scale(1); opacity: 1; }
+    .file-delete-btn:hover { background: #d32f2f; }
+
+    /* 右键菜单 */
+    .context-menu { position: fixed; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; padding: 4px; min-width: 140px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .context-menu-item { padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+    .context-menu-item:hover { background: var(--bg-hover); }
+    .context-menu-item.danger { color: #f44336; }
+    .context-menu-item.danger:hover { background: rgba(244, 67, 54, 0.15); }
+
+    /* 选中状态 */
+    .file-item.selected { background: rgba(82, 156, 202, 0.2); border: 1px solid var(--accent); }
+    .context-menu-item svg { width: 14px; height: 14px; fill: currentColor; }
+    .context-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+    /* 主区域 */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* 标题栏 */
+    .titlebar { height: 32px; background: #323233; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding-right: 12px; }
+    .titlebar-tab { padding: 0 16px; height: 100%; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-right: 1px solid var(--border); }
+    .titlebar-tab.active { background: var(--bg-app); color: var(--text); }
+    .titlebar-tab svg { width: 12px; height: 12px; fill: var(--accent); }
+    .titlebar-actions { margin-left: auto; display: flex; gap: 4px; }
+    .titlebar-btn { width: 34px; height: 28px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+    .titlebar-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .titlebar-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .titlebar-btn.save { color: var(--accent); position: relative; }
+    .titlebar-btn.save:hover { background: var(--bg-active); }
+    .titlebar-btn.save .save-status {
+      position: absolute;
+      top: 3px;
+      right: 3px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: block;
+    }
+    .titlebar-btn.save .save-status.saved {
+      background: #4caf50;
+    }
+    .titlebar-btn.save .save-status.unsaved {
+      background: #f44336;
+    }
+
+    /* 所见即所得编辑器 */
+    .editor-container { flex: 1; display: flex; overflow: hidden; position: relative; }
+    .editor-area { flex: 1; overflow-y: auto; padding: 40px 60px; }
+    .editor-content {
+      max-width: 720px;
+      margin: 0 auto;
+      font-size: 15px;
+      line-height: 1.7;
+      outline: none;
+      min-height: 100%;
+    }
+
+    /* Markdown 渲染样式 - 在编辑器内显示 */
+    .editor-content h1 { display: block !important; font-size: 1.8em !important; font-weight: 700 !important; margin: 0.8em 0 0.4em !important; padding-bottom: 0.2em !important; border-bottom: 1px solid var(--border) !important; color: #fff !important; }
+    .editor-content h2 { display: block !important; font-size: 1.4em !important; font-weight: 600 !important; margin: 0.6em 0 0.3em !important; padding-bottom: 0.15em !important; border-bottom: 1px solid var(--border) !important; color: #fff !important; }
+    .editor-content h3 { display: block !important; font-size: 1.15em !important; font-weight: 600 !important; margin: 0.5em 0 0.2em !important; color: #fff !important; }
+    .editor-content h4 { display: block !important; font-size: 1em !important; font-weight: 600 !important; margin: 0.4em 0 !important; color: #fff !important; }
+    .editor-content h5, .editor-content h6 { display: block !important; font-weight: 600 !important; margin: 0.4em 0 !important; color: #fff !important; }
+    .editor-content p { display: block !important; margin: 0.6em 0 !important; color: var(--text) !important; }
+    .editor-content ul, .editor-content ol { display: block !important; margin: 0.5em 0 !important; padding-left: 1.5em !important; color: var(--text) !important; }
+    .editor-content li { display: list-item !important; margin: 0.2em 0 !important; }
+    .editor-content code { background: #3c3c3c !important; padding: 0.15em 0.4em !important; border-radius: 3px !important; font-family: var(--font-mono) !important; font-size: 0.9em !important; color: #ce9178 !important; }
+    .editor-content pre { background: var(--bg-sidebar) !important; padding: 16px !important; border-radius: 6px !important; overflow-x: auto !important; margin: 0.8em 0 !important; }
+    .editor-content pre code { background: none !important; padding: 0 !important; color: var(--text) !important; }
+    .editor-content blockquote { display: block !important; border-left: 3px solid var(--accent) !important; margin: 0.8em 0 !important; padding-left: 16px !important; color: var(--text-muted) !important; font-style: italic !important; }
+    .editor-content a { color: var(--accent) !important; text-decoration: none !important; }
+    .editor-content a:hover { text-decoration: underline !important; }
+    .editor-content hr { display: block !important; border: none !important; border-top: 1px solid var(--border) !important; margin: 1.5em 0 !important; }
+    .editor-content table { border-collapse: collapse !important; width: 100% !important; margin: 0.8em 0 !important; display: block !important; overflow-x: auto; }
+    .editor-content th, .editor-content td { border: 1px solid var(--border) !important; padding: 8px 12px !important; }
+    .editor-content th { background: var(--bg-sidebar) !important; }
+
+    /* 待办事项 - 复选框样式 */
+    .editor-content ul li { list-style: none !important; margin-left: -1.5em !important; }
+    .editor-content ul li input[type="checkbox"] {
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      width: 16px !important;
+      height: 16px !important;
+      border: 2px solid var(--text-muted) !important;
+      border-radius: 3px !important;
+      background: transparent !important;
+      margin-right: 8px !important;
+      cursor: pointer !important;
+      vertical-align: middle !important;
+      position: relative !important;
+    }
+    .editor-content ul li input[type="checkbox"]:checked {
+      background: var(--accent) !important;
+      border-color: var(--accent) !important;
+    }
+    .editor-content ul li input[type="checkbox"]:checked::after {
+      content: '✓' !important;
+      position: absolute !important;
+      top: -2px !important;
+      left: 3px !important;
+      color: #fff !important;
+      font-size: 12px !important;
+      font-weight: bold !important;
+    }
+
+    /* 源码模式 */
+    .editor-area.source-mode {
+      display: flex;
+      justify-content: center;
+      padding: 20px 60px;
+    }
+    .source-textarea {
+      width: 100%;
+      max-width: 720px;
+      background: var(--bg-app);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.7;
+      padding: 20px;
+      resize: none;
+      outline: none;
+    }
+    .source-textarea:focus {
+      border-color: var(--accent);
+    }
+
+    /* 模式切换按钮激活状态 */
+    .titlebar-btn.active {
+      background: var(--bg-active) !important;
+      color: var(--text) !important;
+    }
+
+    /* 工具栏 */
+    .editor-toolbar {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 2px;
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px;
+      z-index: 10;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .toolbar-btn {
+      width: 28px;
+      height: 26px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .toolbar-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+    /* 空状态 */
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
+    .empty-state svg { width: 48px; height: 48px; fill: var(--border); margin-bottom: 16px; }
+
+    /* 模态框 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 8px; padding: 20px; width: 360px; }
+    .modal h3 { font-size: 14px; margin-bottom: 12px; }
+    .modal input { width: 100%; padding: 8px 10px; background: #3c3c3c; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; outline: none; }
+    .modal input:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .modal-actions button { padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .modal-actions .cancel { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .modal-actions .confirm { background: var(--accent); border: none; color: #fff; }
+
+    /* 提示 */
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--bg-sidebar); border: 1px solid var(--border); padding: 10px 20px; border-radius: 6px; font-size: 13px; z-index: 200; opacity: 0; transition: all 0.3s; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* 隐藏的 textarea 用于存储纯文本 */
+    .hidden-textarea { display: none; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div id="modal"></div>
+  <div id="toast"></div>
+  <div id="contextMenu"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
+  <script>
+    // 配置 marked.js
+    marked.setOptions({
+      gfm: true,
+      breaks: true
+    });
+  </script>
+  <script>
+    const API = '/api';
+    let files = [];
+    let currentFile = null;
+    let rawMarkdown = ''; // 存储原始 Markdown
+    let hasUnsavedChanges = false; // 未保存标记
+    let undoStack = []; // 撤销栈
+    let redoStack = []; // 重做栈
+    let editorMode = 'wysiwyg'; // 'wysiwyg' 或 'source'
+    const MAX_UNDO = 50;
+
+    function render() {
+      document.getElementById('app').innerHTML = `
+        <div class="app">
+        <div class="sidebar">
+          <div class="sidebar-header">
+            <span>我的笔记</span>
+            <svg onclick="showNewModal()" viewBox="0 0 24 24"><path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </div>
+          <div class="search-container">
+            <input type="text" class="search-input" placeholder="搜索..." oninput="filterFiles(this.value)">
+          </div>
+          <div class="file-list" id="fileList"></div>
+        </div>
+        <div class="main">
+          ${currentFile ? `
+            <div class="titlebar">
+              <div class="titlebar-tab active">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                <span>${currentFile.name.replace('.md', '')}${hasUnsavedChanges ? ' •' : ''}</span>
+              </div>
+              <div class="titlebar-actions">
+                <button class="titlebar-btn ${editorMode === 'source' ? 'active' : ''}" onclick="toggleEditorMode()" title="切换源码/预览模式">
+                  <svg viewBox="0 0 24 24"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0l4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+                </button>
+                <button class="titlebar-btn" onclick="undo()" title="撤销 (Ctrl+Z)" ${undoStack.length === 0 ? 'style="opacity:0.3;pointer-events:none"' : ''}>
+                  <svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg>
+                </button>
+                <button class="titlebar-btn" onclick="redo()" title="重做 (Ctrl+Y)" ${redoStack.length === 0 ? 'style="opacity:0.3;pointer-events:none"' : ''}>
+                  <svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg>
+                </button>
+                <button class="titlebar-btn" onclick="deleteFile()" title="删除">
+                  <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
+                <button class="titlebar-btn save" onclick="saveFile()" title="保存 (Ctrl+S)">
+                  <span class="save-status ${hasUnsavedChanges ? 'unsaved' : 'saved'}"></span>
+                  <svg viewBox="0 0 24 24"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="editor-container">
+              ${editorMode === 'wysiwyg' ? `
+                <div class="editor-toolbar">
+                  <button class="toolbar-btn" onclick="insertLine('# ')" title="标题">H</button>
+                  <button class="toolbar-btn" onclick="insertFormat('**')" title="加粗"><b>B</b></button>
+                  <button class="toolbar-btn" onclick="insertFormat('*')" title="斜体"><i>I</i></button>
+                  <button class="toolbar-btn" onclick="insertCodeBlock()" title="代码">&lt;/&gt;</button>
+                  <div class="toolbar-sep"></div>
+                  <button class="toolbar-btn" onclick="insertLine('- ')" title="列表">•</button>
+                  <button class="toolbar-btn" onclick="insertLine('- [ ] ')" title="待办">☐</button>
+                  <button class="toolbar-btn" onclick="insertLine('> ')" title="引用">"</button>
+                </div>
+                <div class="editor-area">
+                  <div class="editor-content" id="editor" contenteditable="true" spellcheck="false"></div>
+                </div>
+              ` : `
+                <div class="editor-area source-mode">
+                  <textarea id="source-editor" class="source-textarea" spellcheck="false"></textarea>
+                </div>
+              `}
+            </div>
+          ` : `
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              <p>选择一个笔记或新建</p>
+            </div>
+          `}
+        </div>
+        </div>
+      `;
+      renderFileList();
+      if (currentFile) initEditor(true);
+    }
+
+    // 切换编辑器模式
+    function toggleEditorMode() {
+      // 切换前先清除选区，避免问题
+      window.getSelection()?.removeAllRanges();
+
+      if (editorMode === 'wysiwyg') {
+        // 从所见即所得切换到源码模式
+        const editor = document.getElementById('editor');
+        if (editor) {
+          rawMarkdown = htmlToMarkdown(editor.innerHTML);
+        }
+        editorMode = 'source';
+      } else {
+        // 从源码模式切换到所见即所得
+        const sourceEditor = document.getElementById('source-editor');
+        if (sourceEditor) {
+          rawMarkdown = sourceEditor.value;
+        }
+        editorMode = 'wysiwyg';
+      }
+      render();
+    }
+
+    function renderFileList(filter = '') {
+      const el = document.getElementById('fileList');
+      if (!el) return;
+      let filtered = files.filter(f => f.name.replace('.md','').toLowerCase().includes(filter.toLowerCase()));
+      // 置顶文件排在前面
+      filtered.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      el.innerHTML = filtered.map(f => {
+        const escapedName = f.name.replace(/'/g, "\\'");
+        return `
+        <div class="file-item ${currentFile?.name === f.name ? 'active' : ''} ${f.pinned ? 'pinned' : ''}"
+             onclick="openFile('${escapedName}')"
+             oncontextmenu="showFileMenu(event, '${escapedName}')">
+          ${f.pinned ? '<svg class="pin-icon" viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>' : ''}
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          <span>${f.name.replace('.md', '')}</span>
+          <button class="file-delete-btn" onclick="event.stopPropagation(); deleteFileByName('${escapedName}')" title="删除">
+            <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+        </div>
+        `;
+      }).join('');
+    }
+
+    function filterFiles(v) { renderFileList(v); }
+
+    function initEditor(isNewFile = false) {
+      // 只有在打开新文件时才重置状态
+      if (isNewFile) {
+        rawMarkdown = currentFile.content || '';
+        hasUnsavedChanges = false;
+        undoStack = [];
+        redoStack = [];
+      }
+
+      if (editorMode === 'wysiwyg') {
+        const editor = document.getElementById('editor');
+        if (!editor) return;
+
+        // 使用 marked 解析 Markdown 为 HTML
+        const html = marked.parse(rawMarkdown);
+        editor.innerHTML = html;
+
+        // 初始化待办复选框点击事件
+        initCheckboxListeners();
+
+        // 监听输入变化
+        editor.addEventListener('input', handleInput);
+        editor.addEventListener('keydown', handleKeydown);
+        editor.addEventListener('paste', handlePaste);
+      } else {
+        // 源码模式
+        const sourceEditor = document.getElementById('source-editor');
+        if (!sourceEditor) return;
+
+        sourceEditor.value = rawMarkdown;
+        sourceEditor.addEventListener('input', (e) => {
+          rawMarkdown = e.target.value;
+          hasUnsavedChanges = true;
+          updateSaveIndicator();
+        });
+        sourceEditor.addEventListener('keydown', handleSourceKeydown);
+      }
+    }
+
+    // 源码模式键盘事件处理
+    function handleSourceKeydown(e) {
+      // Tab 键插入空格
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = e.target.selectionStart;
+        const end = e.target.selectionEnd;
+        e.target.value = e.target.value.substring(0, start) + '  ' + e.target.value.substring(end);
+        e.target.selectionStart = e.target.selectionEnd = start + 2;
+        rawMarkdown = e.target.value;
+        hasUnsavedChanges = true;
+        updateSaveIndicator();
+      }
+    }
+
+    // 初始化待办复选框点击事件
+    function initCheckboxListeners() {
+      const editor = document.getElementById('editor');
+      const checkboxes = editor.querySelectorAll('input[type="checkbox"]');
+      checkboxes.forEach(cb => {
+        cb.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          cb.checked = !cb.checked;
+          // 保存撤销状态
+          saveUndoState();
+          // 标记为未保存
+          hasUnsavedChanges = true;
+          rawMarkdown = htmlToMarkdown(editor.innerHTML);
+          updateSaveIndicator();
+          // 重新渲染标题栏以更新撤销/重做按钮状态
+          render();
+          // 重新设置编辑器内容（保持光标位置）
+          const newEditor = document.getElementById('editor');
+          newEditor.innerHTML = marked.parse(rawMarkdown);
+          initCheckboxListeners();
+        });
+      });
+    }
+
+    function handleInput(e) {
+      const editor = e.target;
+      // 检查是否是因为复选框点击触发
+      if (e.inputType === undefined) {
+        // 保存撤销状态
+        saveUndoState();
+      }
+      // 标记为未保存
+      hasUnsavedChanges = true;
+      updateSaveIndicator();
+      // 检测 Markdown 标题语法并转换
+      convertMarkdownHeadings(editor);
+      // 将 HTML 内容转换回 Markdown
+      rawMarkdown = htmlToMarkdown(editor.innerHTML);
+    }
+
+    // 检测并转换 Markdown 语法
+    function convertMarkdownHeadings(editor) {
+      // 遍历所有段落，查找 Markdown 语法模式
+      const paragraphs = editor.querySelectorAll('p');
+      paragraphs.forEach(p => {
+        // 检查段落是否已经是特殊元素
+        if (p.closest('h1,h2,h3,h4,h5,h6,li,pre,blockquote')) return;
+
+        // 获取纯文本内容，将 &nbsp; 等转换为普通空格
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = p.innerHTML;
+        let text = tempDiv.textContent;
+        // 规范化：将 &nbsp; 和多个空格替换为单个空格
+        text = text.replace(/\u00A0/g, ' ').replace(/ {2,}/g, ' ');
+
+        // 匹配 # 标题模式（# 后面跟空格，然后是内容）
+        const headingMatch = text.match(/^(#{1,6})\s+(.+)/);
+        if (headingMatch) {
+          const level = headingMatch[1].length;
+          const tag = `h${level}`;
+          const lineText = headingMatch[2].trim();
+
+          // 创建标题元素
+          const heading = document.createElement(tag);
+          heading.textContent = lineText;
+
+          // 替换段落
+          p.replaceWith(heading);
+
+          // 将光标移到标题末尾
+          const range = document.createRange();
+          const selection = window.getSelection();
+          range.selectNodeContents(heading);
+          range.collapse(false);
+          selection.removeAllRanges();
+          selection.addRange(range);
+          return;
+        }
+
+        // 检测只有 # 符号的情况，自动插入空格
+        const onlyHash = text.match(/^(#{1,6})$/);
+        if (onlyHash) {
+          let html = p.innerHTML;
+          const normalizedHtml = html.replace(/\u00A0/g, ' ').replace(/ #/g, ' #');
+          if (normalizedHtml !== html) {
+            p.innerHTML = normalizedHtml + ' ';
+            const range = document.createRange();
+            const selection = window.getSelection();
+            range.selectNodeContents(p);
+            range.collapse(false);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+          return;
+        }
+
+        // 匹配待办事项模式：- [ ] 或 - [x]
+        const todoMatch = text.match(/^[-*+]\s+\[([ xX])\]\s*(.*)/);
+        if (todoMatch) {
+          const checked = todoMatch[1].toLowerCase() === 'x';
+          const content = todoMatch[2].trim();
+
+          // 找到父级 ul 或创建新的
+          let ul = p.previousElementSibling;
+          if (!ul || ul.tagName !== 'UL') {
+            ul = document.createElement('ul');
+            p.parentNode.insertBefore(ul, p);
+          }
+
+          // 创建 li
+          const li = document.createElement('li');
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.checked = checked;
+          li.appendChild(checkbox);
+          if (content) {
+            li.appendChild(document.createTextNode(' ' + content));
+          }
+
+          ul.appendChild(li);
+          p.remove();
+
+          // 重新初始化复选框监听
+          setTimeout(() => initCheckboxListeners(), 0);
+          return;
+        }
+
+        // 匹配列表模式：- 或 * 或数字.
+        const listMatch = text.match(/^([-*+]|\d+\.)\s+(.*)/);
+        if (listMatch) {
+          const listChar = listMatch[1];
+          const content = listMatch[2].trim();
+
+          // 确定是 ul 还是 ol
+          let list;
+          let ul = p.previousElementSibling;
+          const isOrdered = /^\d+\.$/.test(listChar);
+
+          if (ul && ((isOrdered && ul.tagName === 'OL') || (!isOrdered && ul.tagName === 'UL'))) {
+            list = ul;
+          } else {
+            list = isOrdered ? document.createElement('ol') : document.createElement('ul');
+            p.parentNode.insertBefore(list, p);
+          }
+
+          // 创建 li
+          const li = document.createElement('li');
+          li.textContent = content;
+          list.appendChild(li);
+          p.remove();
+          return;
+        }
+
+        // 匹配引用模式：>
+        const quoteMatch = text.match(/^>\s*(.*)/);
+        if (quoteMatch && quoteMatch[1]) {
+          const content = quoteMatch[1].trim();
+          const blockquote = document.createElement('blockquote');
+          blockquote.innerHTML = content + '<br>';
+          p.replaceWith(blockquote);
+          return;
+        }
+
+        // 检测只有 - [ ] 或 - 等符号的情况，自动插入空格
+        const onlyList = text.match(/^([-*+])\s*$/);
+        if (onlyList) {
+          let html = p.innerHTML;
+          const normalizedHtml = html.replace(/\u00A0/g, ' ').replace(/([-*+])\s*$/, '$1 ');
+          if (normalizedHtml !== html) {
+            p.innerHTML = normalizedHtml + ' ';
+          }
+          return;
+        }
+
+        const onlyTodo = text.match(/^([-*+])\s+\[\s*\]$/);
+        if (onlyTodo) {
+          let html = p.innerHTML;
+          const normalizedHtml = html.replace(/\u00A0/g, ' ').replace(/([-*+])\s+\[\s*\]/, '$1 [ ]');
+          if (normalizedHtml !== html) {
+            p.innerHTML = normalizedHtml + ' ';
+          }
+          return;
+        }
+      });
+    }
+
+    function handleKeydown(e) {
+      // 撤销: Ctrl+Z
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        undo();
+        return;
+      }
+
+      // 重做: Ctrl+Y 或 Ctrl+Shift+Z
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      // Tab 键插入空格
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        document.execCommand('insertText', false, '  ');
+      }
+
+      // Enter 键处理列表
+      if (e.key === 'Enter' && !e.shiftKey) {
+        // 保存撤销状态
+        saveUndoState();
+
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
+        const node = range.startContainer;
+
+        // 获取当前行元素
+        const lineElement = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+        const listItem = lineElement.closest('li, p');
+
+        if (listItem) {
+          const lineText = listItem.textContent;
+          const listMatch = lineText.match(/^(\s*)([-*+]|\d+\.)\s/);
+          const todoMatch = lineText.match(/^(\s*)([-*+])\s\[([ x])\]\s/);
+
+          if (listMatch || todoMatch) {
+            e.preventDefault();
+
+            // 如果当前列表项为空，删除它
+            const cleanText = lineText.trim().replace(/^[*-+]\s\[\s*\]\s?/, '').replace(/^[*-+]\s/, '').trim();
+            if (cleanText === '') {
+              const p = document.createElement('p');
+              p.innerHTML = '<br>';
+              listItem.replaceWith(p);
+              range.setStart(p, 0);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+              rawMarkdown = htmlToMarkdown(document.getElementById('editor').innerHTML);
+              hasUnsavedChanges = true;
+              updateSaveIndicator();
+              return;
+            }
+
+            // 生成新列表项
+            setTimeout(() => {
+              const editor = document.getElementById('editor');
+              const newLine = document.createElement('li');
+              if (todoMatch) {
+                newLine.innerHTML = `${todoMatch[1]}${todoMatch[2]} [ ] `;
+              } else {
+                newLine.innerHTML = `${listMatch[1]}${listMatch[2]} `;
+              }
+
+              // 找到最近的ul或ol
+              const list = editor.querySelector('ul, ol');
+              if (list) {
+                list.appendChild(newLine);
+                setCursorAtEnd(newLine);
+              } else {
+                const ul = document.createElement('ul');
+                ul.appendChild(newLine);
+                listItem.after(ul);
+                setCursorAtEnd(newLine);
+              }
+
+              rawMarkdown = htmlToMarkdown(editor.innerHTML);
+              hasUnsavedChanges = true;
+              updateSaveIndicator();
+              initCheckboxListeners();
+            }, 0);
+          }
+        }
+      }
+    }
+
+    // 保存撤销状态
+    function saveUndoState() {
+      const editor = document.getElementById('editor');
+      if (!editor) return;
+      const state = {
+        html: editor.innerHTML,
+        markdown: htmlToMarkdown(editor.innerHTML)
+      };
+      // 避免重复保存相同状态
+      if (undoStack.length > 0 && undoStack[undoStack.length - 1].html === state.html) return;
+      undoStack.push(state);
+      if (undoStack.length > MAX_UNDO) {
+        undoStack.shift();
+      }
+      // 清空重做栈
+      redoStack = [];
+      updateUndoRedoButtons();
+    }
+
+    // 撤销
+    function undo() {
+      if (undoStack.length === 0) return;
+      const editor = document.getElementById('editor');
+      if (!editor) return;
+
+      // 保存当前状态到重做栈
+      redoStack.push({
+        html: editor.innerHTML,
+        markdown: htmlToMarkdown(editor.innerHTML)
+      });
+
+      // 恢复到上一个状态
+      const state = undoStack.pop();
+      editor.innerHTML = state.html;
+      rawMarkdown = state.markdown;
+      hasUnsavedChanges = true;
+      updateSaveIndicator();
+      updateUndoRedoButtons();
+      initCheckboxListeners();
+    }
+
+    // 重做
+    function redo() {
+      if (redoStack.length === 0) return;
+      const editor = document.getElementById('editor');
+      if (!editor) return;
+
+      // 保存当前状态到撤销栈
+      undoStack.push({
+        html: editor.innerHTML,
+        markdown: htmlToMarkdown(editor.innerHTML)
+      });
+
+      // 恢复到下一个状态
+      const state = redoStack.pop();
+      editor.innerHTML = state.html;
+      rawMarkdown = state.markdown;
+      hasUnsavedChanges = true;
+      updateSaveIndicator();
+      updateUndoRedoButtons();
+      initCheckboxListeners();
+    }
+
+    // 更新撤销/重做按钮状态
+    function updateUndoRedoButtons() {
+      const undoBtn = document.querySelector('.titlebar-btn[onclick="undo()"]');
+      const redoBtn = document.querySelector('.titlebar-btn[onclick="redo()"]');
+      if (undoBtn) {
+        undoBtn.style.opacity = undoStack.length === 0 ? '0.3' : '1';
+        undoBtn.style.pointerEvents = undoStack.length === 0 ? 'none' : 'auto';
+      }
+      if (redoBtn) {
+        redoBtn.style.opacity = redoStack.length === 0 ? '0.3' : '1';
+        redoBtn.style.pointerEvents = redoStack.length === 0 ? 'none' : 'auto';
+      }
+    }
+
+    // 更新保存指示器
+    function updateSaveIndicator() {
+      const titleSpan = document.querySelector('.titlebar-tab.active span');
+      if (titleSpan && currentFile) {
+        titleSpan.textContent = currentFile.name.replace('.md', '') + (hasUnsavedChanges ? ' •' : '');
+      }
+      // 更新保存状态圆点
+      const saveStatus = document.querySelector('.save-status');
+      if (saveStatus) {
+        saveStatus.className = 'save-status ' + (hasUnsavedChanges ? 'unsaved' : 'saved');
+      }
+      updateUndoRedoButtons();
+    }
+
+    function handlePaste(e) {
+      e.preventDefault();
+      const text = e.clipboardData.getData('text/plain');
+      document.execCommand('insertText', false, text);
+    }
+
+    function setCursorAtEnd(node) {
+      const range = document.createRange();
+      const selection = window.getSelection();
+      range.selectNodeContents(node);
+      range.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      node.focus();
+    }
+
+    function insertLine(prefix) {
+      // 只在 WYSIWYG 模式下工作
+      if (editorMode !== 'wysiwyg') return;
+
+      const editor = document.getElementById('editor');
+      if (!editor) return;
+
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+
+      // 保存撤销状态
+      saveUndoState();
+
+      const range = selection.getRangeAt(0);
+      range.collapse(true);
+
+      const textNode = document.createTextNode(prefix);
+      range.insertNode(textNode);
+
+      range.setStartAfter(textNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+
+      editor.focus();
+      hasUnsavedChanges = true;
+      updateSaveIndicator();
+      rawMarkdown = htmlToMarkdown(editor.innerHTML);
+      // 触发标题检测
+      convertMarkdownHeadings(editor);
+    }
+
+    function insertFormat(wrapper) {
+      // 只在 WYSIWYG 模式下工作
+      if (editorMode !== 'wysiwyg') return;
+
+      const editor = document.getElementById('editor');
+      if (!editor) return;
+
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+
+      // 确保焦点在编辑器上
+      editor.focus();
+
+      const range = selection.getRangeAt(0);
+      const selectedText = range.toString();
+
+      // 保存撤销状态
+      saveUndoState();
+
+      if (selectedText) {
+        // 包裹选中文本，使用真正的 HTML 标签
+        const wrapperMap = { '**': 'strong', '*': 'em', '`': 'code' };
+        const tag = wrapperMap[wrapper] || wrapper;
+        const wrapperElement = document.createElement(tag);
+        wrapperElement.textContent = selectedText;
+        range.deleteContents();
+        range.insertNode(wrapperElement);
+        range.selectNodeContents(wrapperElement);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // 插入配对符号
+        const textNode = document.createTextNode(wrapper + wrapper);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      hasUnsavedChanges = true;
+      updateSaveIndicator();
+      rawMarkdown = htmlToMarkdown(editor.innerHTML);
+    }
+
+    // 插入代码块
+    function insertCodeBlock() {
+      // 只在 WYSIWYG 模式下工作
+      if (editorMode !== 'wysiwyg') return;
+
+      const editor = document.getElementById('editor');
+      if (!editor) return;
+
+      // 保存撤销状态
+      saveUndoState();
+
+      // 创建代码块 HTML
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+      code.textContent = '';
+      pre.appendChild(code);
+
+      // 获取当前选择
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.collapse(true);
+        range.insertNode(pre);
+        // 将光标移到代码块内
+        range.selectNodeContents(code);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      } else {
+        // 如果没有选择，在末尾插入
+        editor.appendChild(pre);
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+
+      editor.focus();
+      hasUnsavedChanges = true;
+      updateSaveIndicator();
+      rawMarkdown = htmlToMarkdown(editor.innerHTML);
+    }
+
+    // HTML 转 Markdown（健壮版）
+    function htmlToMarkdown(html) {
+      // 创建临时容器来解析 HTML
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+
+      function processNode(node) {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return node.textContent;
+        }
+
+        if (node.nodeType !== Node.ELEMENT_NODE) {
+          return '';
+        }
+
+        const tag = node.tagName.toLowerCase();
+        const children = Array.from(node.childNodes).map(processNode).join('');
+
+        switch (tag) {
+          case 'h1': return `# ${children}\n\n`;
+          case 'h2': return `## ${children}\n\n`;
+          case 'h3': return `### ${children}\n\n`;
+          case 'h4': return `#### ${children}\n\n`;
+          case 'h5': return `##### ${children}\n\n`;
+          case 'h6': return `###### ${children}\n\n`;
+          case 'p': return `${children}\n\n`;
+          case 'br': return '\n';
+          case 'hr': return '\n---\n\n';
+          case 'strong':
+          case 'b': return `**${children}**`;
+          case 'em':
+          case 'i': return `*${children}*`;
+          case 'code':
+            // 检查是否在 pre 标签内
+            if (node.closest('pre')) return children;
+            return `\`${children}\``;
+          case 'pre':
+            const codeContent = node.querySelector('code')?.textContent || node.textContent;
+            return `\`\`\`\n${codeContent.trim()}\n\`\`\`\n\n`;
+          case 'a':
+            const href = node.getAttribute('href') || '';
+            return `[${children}](${href})`;
+          case 'blockquote':
+            const quoteLines = children.trim().split('\n');
+            return quoteLines.map(line => `> ${line}`).join('\n') + '\n\n';
+          case 'ul':
+            return Array.from(node.children).map(li => {
+              const checkbox = li.querySelector('input[type="checkbox"]');
+              // 直接获取文本内容，移除 input 标签后取剩余部分
+              const text = li.textContent || '';
+              if (checkbox) {
+                const checked = checkbox.checked || checkbox.hasAttribute('checked');
+                // 移除可能的空前缀后获取实际内容
+                const content = text.trim();
+                return `- [${checked ? 'x' : ' '}] ${content}`;
+              }
+              return `- ${text.trim()}`;
+            }).join('\n') + '\n\n';
+          case 'ol':
+            return Array.from(node.children).map((li, i) => {
+              return `${i + 1}. ${(li.textContent || '').trim()}`;
+            }).join('\n') + '\n\n';
+          case 'li':
+            return children;
+          case 'div':
+          case 'section':
+            return children + '\n\n';
+          default:
+            return children;
+        }
+      }
+
+      function stripHtml(html) {
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+        return temp.textContent || temp.innerText || '';
+      }
+
+      let result = Array.from(temp.childNodes).map(processNode).join('');
+
+      // 清理多余空行
+      result = result.replace(/\n{3,}/g, '\n\n').trim();
+
+      return result;
+    }
+
+    async function loadFiles() {
+      try {
+        const res = await fetch(`${API}/notes`);
+        files = await res.json();
+        render();
+        // 自动打开第一个文件
+        if (files.length > 0 && !currentFile) {
+          await openFile(files[0].name);
+        }
+      } catch (e) { toast('加载失败'); }
+    }
+
+    async function openFile(name) {
+      // 检查未保存的更改
+      if (currentFile && hasUnsavedChanges) {
+        const confirmed = confirm('当前文件有未保存的更改，是否保存后再切换？\n点击"确定"保存，点击"取消"放弃更改。');
+        if (confirmed) {
+          await saveFile();
+        }
+      }
+
+      try {
+        const res = await fetch(`${API}/notes/${name}`);
+        currentFile = await res.json();
+        render();
+      } catch (e) { toast('打开失败'); }
+    }
+
+    async function saveFile() {
+      if (!currentFile) return;
+
+      // 如果是所见即所得模式，先转换 HTML 到 Markdown
+      if (editorMode === 'wysiwyg') {
+        const editor = document.getElementById('editor');
+        if (editor) {
+          rawMarkdown = htmlToMarkdown(editor.innerHTML);
+        }
+      } else {
+        // 源码模式，直接从 textarea 获取
+        const sourceEditor = document.getElementById('source-editor');
+        if (sourceEditor) {
+          rawMarkdown = sourceEditor.value;
+        }
+      }
+
+      try {
+        await fetch(`${API}/notes/${currentFile.name}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: rawMarkdown })
+        });
+        // 保存成功后更新 currentFile.content，避免切换模式时数据丢失
+        currentFile.content = rawMarkdown;
+        hasUnsavedChanges = false;
+        updateSaveIndicator();
+        toast('已保存');
+      } catch (e) { toast('保存失败'); }
+    }
+
+    async function deleteFile() {
+      if (!currentFile || !confirm('确定删除？')) return;
+      try {
+        await fetch(`${API}/notes/${currentFile.name}`, { method: 'DELETE' });
+        currentFile = null;
+        await loadFiles();
+        toast('已删除');
+      } catch (e) { toast('删除失败'); }
+    }
+
+    async function deleteFileByName(name) {
+      if (!confirm(`确定删除 "${name}"？`)) return;
+      try {
+        await fetch(`${API}/notes/${name}`, { method: 'DELETE' });
+        if (currentFile?.name === name) currentFile = null;
+        await loadFiles();
+        toast('已删除');
+      } catch (e) { toast('删除失败'); }
+    }
+
+    // 显示右键菜单
+    function showFileMenu(e, name) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const menu = document.getElementById('contextMenu');
+      const file = files.find(f => f.name === name);
+      const isPinned = file?.pinned || false;
+      // 转义文件名中的单引号
+      const escapedName = name.replace(/'/g, "\\'");
+
+      menu.innerHTML = `
+        <div class="context-menu-item" onclick="openFile('${escapedName}'); hideContextMenu()">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          打开
+        </div>
+        <div class="context-menu-sep"></div>
+        <div class="context-menu-item" onclick="selectAllFiles(); hideContextMenu()">
+          <svg viewBox="0 0 24 24"><path d="M3 5h2V3a1 1 0 0 0-2 0v2zm0 8h2v-2H3v2zm4 8h2v-2H7v2zM3 9h2V7H3v2zm10-6h-2v2h2V3zm6 0v2h2a1 1 0 0 0 0-2h-2V3zM5 5v2h2a1 1 0 0 0 0-2H5zM5 19h2v-2H5v2zm4-8h2V9H9v2z"/></svg>
+          全选
+        </div>
+        <div class="context-menu-item" onclick="toggleFileSelection('${escapedName}'); hideContextMenu()">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          ${isFileSelected(name) ? '取消选择' : '选择'}
+        </div>
+        <div class="context-menu-item" onclick="togglePin('${escapedName}'); hideContextMenu()">
+          <svg viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+          ${isPinned ? '取消置顶' : '置顶'}
+        </div>
+        <div class="context-menu-sep"></div>
+        <div class="context-menu-item danger" onclick="deleteFileByName('${escapedName}'); hideContextMenu()">
+          <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          删除
+        </div>
+      `;
+
+      // 定位菜单
+      const rect = e.target.closest('.file-item').getBoundingClientRect();
+      menu.style.left = Math.min(rect.right - 140, window.innerWidth - 150) + 'px';
+      menu.style.top = Math.min(rect.bottom + 4, window.innerHeight - 200) + 'px';
+      menu.style.display = 'block';
+    }
+
+    function hideContextMenu() {
+      document.getElementById('contextMenu').style.display = 'none';
+    }
+
+    // 多选相关
+    let selectedFiles = new Set();
+
+    function isFileSelected(name) {
+      return selectedFiles.has(name);
+    }
+
+    function toggleFileSelection(name) {
+      if (selectedFiles.has(name)) {
+        selectedFiles.delete(name);
+      } else {
+        selectedFiles.add(name);
+      }
+      // 更新文件列表显示（高亮选中项）
+      document.querySelectorAll('.file-item').forEach(item => {
+        const itemName = item.getAttribute('onclick')?.match(/'(\w+\.md)'/)?.[1];
+        if (itemName && selectedFiles.has(itemName)) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
+    }
+
+    function selectAllFiles() {
+      files.forEach(f => selectedFiles.add(f.name));
+      document.querySelectorAll('.file-item').forEach(item => item.classList.add('selected'));
+    }
+
+    function clearSelection() {
+      selectedFiles.clear();
+      document.querySelectorAll('.file-item').forEach(item => item.classList.remove('selected'));
+    }
+
+    // 置顶功能
+    async function togglePin(name) {
+      const file = files.find(f => f.name === name);
+      if (!file) return;
+
+      try {
+        // 如果文件没有 content，说明是从列表获取的，需要先获取完整内容
+        if (file.content === undefined) {
+          const res = await fetch(`${API}/notes/${name}`);
+          const fullFile = await res.json();
+          file.content = fullFile.content || '';
+        }
+        await fetch(`${API}/notes/${name}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: file.content, pinned: !file.pinned })
+        });
+        // 更新本地文件状态
+        file.pinned = !file.pinned;
+        await loadFiles();
+        toast(file.pinned ? '已置顶' : '已取消置顶');
+      } catch (e) { toast('置顶失败'); }
+    }
+
+    // 点击其他地方关闭菜单
+    document.addEventListener('click', hideContextMenu);
+
+    function showNewModal() {
+      document.getElementById('modal').innerHTML = `
+        <div class="modal-overlay" onclick="document.getElementById('modal').innerHTML=''">
+          <div class="modal" onclick="event.stopPropagation()">
+            <h3>新建笔记</h3>
+            <input type="text" id="newName" placeholder="笔记名称" onkeydown="if(event.key==='Enter')createFile()">
+            <div class="modal-actions">
+              <button class="cancel" onclick="document.getElementById('modal').innerHTML=''">取消</button>
+              <button class="confirm" onclick="createFile()">创建</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('newName').focus();
+    }
+
+    async function createFile() {
+      const name = document.getElementById('newName').value.trim().replace(/\.md$/, '') + '.md';
+      if (!name || name === '.md') return;
+      const content = `# ${name.replace('.md', '')}\n\n`;
+      try {
+        await fetch(`${API}/notes/${name}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content })
+        });
+        document.getElementById('modal').innerHTML = '';
+        await loadFiles();
+        await openFile(name);
+        toast('已创建');
+      } catch (e) { toast('创建失败'); }
+    }
+
+    function toast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    // 快捷键（全局）
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveFile();
+      }
+      // Ctrl+Z 撤销（防止在编辑器外触发）
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        if (document.activeElement.closest('.editor-content')) {
+          e.preventDefault();
+          undo();
+        }
+      }
+      // Ctrl+Y 或 Ctrl+Shift+Z 重做
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
+        if (document.activeElement.closest('.editor-content')) {
+          e.preventDefault();
+          redo();
+        }
+      }
+    });
+
+    loadFiles();
+  </script>
+</body>
+</html>
