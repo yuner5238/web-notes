@@ -1,16 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>笔记</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
       --bg-app: #1a1a1b;
@@ -25,130 +20,28 @@
       --font-mono: 'SF Mono', 'Cascadia Code', Consolas, monospace;
     }
 
-    html,
-    body {
-      height: 100%;
-      overflow: hidden;
-    }
+    html, body { height: 100%; overflow: hidden; }
+    body { font-family: var(--font-ui); background: var(--bg-app); color: var(--text); font-size: 14px; }
 
-    body {
-      font-family: var(--font-ui);
-      background: var(--bg-app);
-      color: var(--text);
-      font-size: 14px;
-    }
-
-    .app {
-      display: flex;
-      height: 100vh;
-    }
+    .app { display: flex; height: 100vh; }
 
     /* 侧边栏 */
-    .sidebar {
-      width: 240px;
-      background: var(--bg-sidebar);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      flex-shrink: 0;
-    }
-
-    .sidebar-header {
-      padding: 12px 14px;
-      font-size: 13px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .sidebar-header svg {
-      width: 14px;
-      height: 14px;
-      cursor: pointer;
-      opacity: 0.6;
-    }
-
-    .sidebar-header svg:hover {
-      opacity: 1;
-    }
-
-    .search-container {
-      padding: 0 10px 10px;
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 8px 12px;
-      background: #3c3c3c;
-      border: 1px solid transparent;
-      border-radius: 4px;
-      color: var(--text);
-      font-size: 14px;
-      outline: none;
-    }
-
-    .search-input:focus {
-      border-color: var(--accent);
-    }
-
-    .file-list {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0 6px;
-    }
-
-    .file-list::-webkit-scrollbar {
-      width: 6px;
-    }
-
-    .file-item {
-      padding: 6px 10px 6px 26px;
-      border-radius: 4px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--text);
-      font-size: 14px;
-    }
-
-    .file-item:hover {
-      background: var(--bg-hover);
-    }
-
-    .file-item.active {
-      background: var(--bg-active);
-    }
-
-    .file-item svg {
-      width: 14px;
-      height: 14px;
-      fill: var(--accent);
-      flex-shrink: 0;
-    }
-
-    .file-item span {
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .file-item {
-      position: relative;
-    }
-
-    .file-item .pin-icon {
-      width: 12px;
-      height: 12px;
-      fill: var(--accent);
-      flex-shrink: 0;
-      margin-right: 4px;
-    }
-
+    .sidebar { width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 12px 14px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; }
+    .sidebar-header svg { width: 14px; height: 14px; cursor: pointer; opacity: 0.6; }
+    .sidebar-header svg:hover { opacity: 1; }
+    .search-container { padding: 0 10px 10px; }
+    .search-input { width: 100%; padding: 8px 12px; background: #3c3c3c; border: 1px solid transparent; border-radius: 4px; color: var(--text); font-size: 14px; outline: none; }
+    .search-input:focus { border-color: var(--accent); }
+    .file-list { flex: 1; overflow-y: auto; padding: 0 6px; }
+    .file-list::-webkit-scrollbar { width: 6px; }
+    .file-item { padding: 6px 10px 6px 26px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: var(--text); font-size: 14px; }
+    .file-item:hover { background: var(--bg-hover); }
+    .file-item.active { background: var(--bg-active); }
+    .file-item svg { width: 14px; height: 14px; fill: var(--accent); flex-shrink: 0; }
+    .file-item span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-item { position: relative; }
+    .file-item .pin-icon { width: 12px; height: 12px; fill: var(--accent); flex-shrink: 0; margin-right: 4px; }
     .file-delete-btn {
       position: absolute;
       right: 8px;
@@ -166,155 +59,36 @@
       opacity: 0;
       transition: all 0.2s ease;
     }
-
-    .file-delete-btn svg {
-      width: 14px;
-      height: 14px;
-      fill: #fff;
-    }
-
-    .file-item:hover .file-delete-btn {
-      transform: translateY(-50%) scale(1);
-      opacity: 1;
-    }
-
-    .file-delete-btn:hover {
-      background: #d32f2f;
-    }
+    .file-delete-btn svg { width: 14px; height: 14px; fill: #fff; }
+    .file-item:hover .file-delete-btn { transform: translateY(-50%) scale(1); opacity: 1; }
+    .file-delete-btn:hover { background: #d32f2f; }
 
     /* 右键菜单 */
-    .context-menu {
-      position: fixed;
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px;
-      min-width: 140px;
-      z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-    }
-
-    .context-menu-item {
-      padding: 8px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--text);
-    }
-
-    .context-menu-item:hover {
-      background: var(--bg-hover);
-    }
-
-    .context-menu-item.danger {
-      color: #f44336;
-    }
-
-    .context-menu-item.danger:hover {
-      background: rgba(244, 67, 54, 0.15);
-    }
+    .context-menu { position: fixed; background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 6px; padding: 4px; min-width: 140px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .context-menu-item { padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; color: var(--text); }
+    .context-menu-item:hover { background: var(--bg-hover); }
+    .context-menu-item.danger { color: #f44336; }
+    .context-menu-item.danger:hover { background: rgba(244, 67, 54, 0.15); }
 
     /* 选中状态 */
-    .file-item.selected {
-      background: rgba(82, 156, 202, 0.2);
-      border: 1px solid var(--accent);
-    }
-
-    .context-menu-item svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
-    }
-
-    .context-menu-sep {
-      height: 1px;
-      background: var(--border);
-      margin: 4px 0;
-    }
+    .file-item.selected { background: rgba(82, 156, 202, 0.2); border: 1px solid var(--accent); }
+    .context-menu-item svg { width: 14px; height: 14px; fill: currentColor; }
+    .context-menu-sep { height: 1px; background: var(--border); margin: 4px 0; }
 
     /* 主区域 */
-    .main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
     /* 标题栏 */
-    .titlebar {
-      height: 32px;
-      background: #323233;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding-right: 12px;
-    }
-
-    .titlebar-tab {
-      padding: 0 16px;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 13px;
-      color: var(--text-muted);
-      cursor: pointer;
-      border-right: 1px solid var(--border);
-    }
-
-    .titlebar-tab.active {
-      background: var(--bg-app);
-      color: var(--text);
-    }
-
-    .titlebar-tab svg {
-      width: 12px;
-      height: 12px;
-      fill: var(--accent);
-    }
-
-    .titlebar-actions {
-      margin-left: auto;
-      display: flex;
-      gap: 4px;
-    }
-
-    .titlebar-btn {
-      width: 34px;
-      height: 28px;
-      border: none;
-      background: transparent;
-      color: var(--text-muted);
-      cursor: pointer;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .titlebar-btn:hover {
-      background: var(--bg-hover);
-      color: var(--text);
-    }
-
-    .titlebar-btn svg {
-      width: 16px;
-      height: 16px;
-      fill: currentColor;
-    }
-
-    .titlebar-btn.save {
-      color: var(--accent);
-      position: relative;
-    }
-
-    .titlebar-btn.save:hover {
-      background: var(--bg-active);
-    }
-
+    .titlebar { height: 32px; background: #323233; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding-right: 12px; }
+    .titlebar-tab { padding: 0 16px; height: 100%; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); cursor: pointer; border-right: 1px solid var(--border); }
+    .titlebar-tab.active { background: var(--bg-app); color: var(--text); }
+    .titlebar-tab svg { width: 12px; height: 12px; fill: var(--accent); }
+    .titlebar-actions { margin-left: auto; display: flex; gap: 4px; }
+    .titlebar-btn { width: 34px; height: 28px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+    .titlebar-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .titlebar-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .titlebar-btn.save { color: var(--accent); position: relative; }
+    .titlebar-btn.save:hover { background: var(--bg-active); }
     .titlebar-btn.save .save-status {
       position: absolute;
       top: 3px;
@@ -324,25 +98,16 @@
       border-radius: 50%;
       display: block;
     }
-
     .titlebar-btn.save .save-status.saved {
       background: #4caf50;
     }
-
     .titlebar-btn.save .save-status.unsaved {
       background: #f44336;
     }
 
     /* 编辑器通用结构 */
-    .editor-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      position: relative;
-      min-height: 0;
-    }
-
+    .editor-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; min-height: 0; }
+    
     /* 统一滚动区域 - 包含行号和内容 */
     .editor-scroll-area {
       flex: 1;
@@ -350,24 +115,23 @@
       overflow-x: hidden;
       min-height: 0;
     }
-
+    
     /* 编辑器主容器 - 行号和内容同行 */
-    .editor-wrapper {
-      display: flex;
-      max-width: 720px;
-      margin: 0 auto;
-      width: 100%;
+    .editor-wrapper { 
+      display: flex; 
+      max-width: 720px; 
+      margin: 0 auto; 
+      width: 100%; 
       min-height: 100%;
       align-items: flex-start;
     }
-
+    
     /* 源码模式 - 行号和内容铺满全屏 */
     .editor-wrapper:has(.source-textarea) {
-      max-width: 720px;
-      margin: 0 auto;
+      max-width: none;
+      margin: 0;
       height: 100%;
     }
-
     .editor-wrapper:has(.source-textarea) .editor-content-wrapper {
       padding: 0;
       display: flex;
@@ -375,31 +139,13 @@
       min-width: 0;
       height: 100%;
     }
-
+    
     /* 源码模式滚动区域 */
     .editor-container:has(.source-textarea) .editor-scroll-area {
       height: 100%;
     }
-
-    /* 行号通用样式 */
-    .line-numbers {
-      width: 50px;
-      text-align: right;
-      color: var(--text-muted);
-      font-family: var(--font-mono);
-      font-size: 14px;
-      line-height: 1.7;
-      user-select: none;
-      flex-shrink: 0;
-      padding: 40px 12px 40px 20px;
-    }
-
-    .line-numbers span {
-      display: block;
-      height: calc(14px * 1.7);
-    }
-
-    /* 源码模式行号容器 - 独立滚动 */
+    
+    /* 源码模式行号容器 */
     .source-line-numbers {
       width: 50px;
       flex-shrink: 0;
@@ -415,18 +161,14 @@
       height: 100%;
       box-sizing: border-box;
     }
-
     .source-line-numbers span {
       display: block;
       height: calc(14px * 1.7);
     }
-
+    
     /* 内容区域 - 统一padding */
-    .editor-content-wrapper {
-      flex: 1;
-      padding: 40px 60px 40px 62px;
-    }
-
+    .editor-content-wrapper { flex: 1; padding: 40px 60px 40px 62px; }
+    
     /* 所见即所得内容 */
     .editor-content {
       font-family: var(--font-mono);
@@ -437,145 +179,28 @@
     }
 
     /* Markdown 渲染样式 - 在编辑器内显示 */
-    .editor-content * {
-      line-height: 1.7 !important;
-    }
-
-    .editor-content h1 {
-      display: block !important;
-      font-size: 1.8em !important;
-      font-weight: 700 !important;
-      margin: 0.8em 0 0.4em !important;
-      padding-bottom: 0.2em !important;
-      border-bottom: 1px solid var(--border) !important;
-      color: #fff !important;
-    }
-
-    .editor-content h2 {
-      display: block !important;
-      font-size: 1.4em !important;
-      font-weight: 600 !important;
-      margin: 0.6em 0 0.3em !important;
-      padding-bottom: 0.15em !important;
-      border-bottom: 1px solid var(--border) !important;
-      color: #fff !important;
-    }
-
-    .editor-content h3 {
-      display: block !important;
-      font-size: 1.15em !important;
-      font-weight: 600 !important;
-      margin: 0.5em 0 0.2em !important;
-      color: #fff !important;
-    }
-
-    .editor-content h4 {
-      display: block !important;
-      font-size: 1em !important;
-      font-weight: 600 !important;
-      margin: 0.4em 0 !important;
-      color: #fff !important;
-    }
-
-    .editor-content h5,
-    .editor-content h6 {
-      display: block !important;
-      font-weight: 600 !important;
-      margin: 0.4em 0 !important;
-      color: #fff !important;
-    }
-
-    .editor-content p {
-      display: block !important;
-      margin: 0.6em 0 !important;
-      color: var(--text) !important;
-    }
-
-    .editor-content ul,
-    .editor-content ol {
-      display: block !important;
-      margin: 0.5em 0 !important;
-      padding-left: 1.5em !important;
-      color: var(--text) !important;
-    }
-
-    .editor-content li {
-      display: list-item !important;
-      margin: 0.2em 0 !important;
-    }
-
-    .editor-content code {
-      background: #3c3c3c !important;
-      padding: 0.15em 0.4em !important;
-      border-radius: 3px !important;
-      font-family: var(--font-mono) !important;
-      font-size: 0.9em !important;
-      color: #ce9178 !important;
-    }
-
-    .editor-content pre {
-      background: var(--bg-sidebar) !important;
-      padding: 16px !important;
-      border-radius: 6px !important;
-      overflow-x: auto !important;
-      margin: 0.8em 0 !important;
-    }
-
-    .editor-content pre code {
-      background: none !important;
-      padding: 0 !important;
-      color: var(--text) !important;
-    }
-
-    .editor-content blockquote {
-      display: block !important;
-      border-left: 3px solid var(--accent) !important;
-      margin: 0.8em 0 !important;
-      padding-left: 16px !important;
-      color: var(--text-muted) !important;
-      font-style: italic !important;
-    }
-
-    .editor-content a {
-      color: var(--accent) !important;
-      text-decoration: none !important;
-    }
-
-    .editor-content a:hover {
-      text-decoration: underline !important;
-    }
-
-    .editor-content hr {
-      display: block !important;
-      border: none !important;
-      border-top: 1px solid var(--border) !important;
-      margin: 1.5em 0 !important;
-    }
-
-    .editor-content table {
-      border-collapse: collapse !important;
-      width: 100% !important;
-      margin: 0.8em 0 !important;
-      display: block !important;
-      overflow-x: auto;
-    }
-
-    .editor-content th,
-    .editor-content td {
-      border: 1px solid var(--border) !important;
-      padding: 8px 12px !important;
-    }
-
-    .editor-content th {
-      background: var(--bg-sidebar) !important;
-    }
+    .editor-content * { line-height: 1.7 !important; }
+    .editor-content h1 { display: block !important; font-size: 1.8em !important; font-weight: 700 !important; margin: 0.8em 0 0.4em !important; padding-bottom: 0.2em !important; border-bottom: 1px solid var(--border) !important; color: #fff !important; }
+    .editor-content h2 { display: block !important; font-size: 1.4em !important; font-weight: 600 !important; margin: 0.6em 0 0.3em !important; padding-bottom: 0.15em !important; border-bottom: 1px solid var(--border) !important; color: #fff !important; }
+    .editor-content h3 { display: block !important; font-size: 1.15em !important; font-weight: 600 !important; margin: 0.5em 0 0.2em !important; color: #fff !important; }
+    .editor-content h4 { display: block !important; font-size: 1em !important; font-weight: 600 !important; margin: 0.4em 0 !important; color: #fff !important; }
+    .editor-content h5, .editor-content h6 { display: block !important; font-weight: 600 !important; margin: 0.4em 0 !important; color: #fff !important; }
+    .editor-content p { display: block !important; margin: 0.6em 0 !important; color: var(--text) !important; }
+    .editor-content ul, .editor-content ol { display: block !important; margin: 0.5em 0 !important; padding-left: 1.5em !important; color: var(--text) !important; }
+    .editor-content li { display: list-item !important; margin: 0.2em 0 !important; }
+    .editor-content code { background: #3c3c3c !important; padding: 0.15em 0.4em !important; border-radius: 3px !important; font-family: var(--font-mono) !important; font-size: 0.9em !important; color: #ce9178 !important; }
+    .editor-content pre { background: var(--bg-sidebar) !important; padding: 16px !important; border-radius: 6px !important; overflow-x: auto !important; margin: 0.8em 0 !important; }
+    .editor-content pre code { background: none !important; padding: 0 !important; color: var(--text) !important; }
+    .editor-content blockquote { display: block !important; border-left: 3px solid var(--accent) !important; margin: 0.8em 0 !important; padding-left: 16px !important; color: var(--text-muted) !important; font-style: italic !important; }
+    .editor-content a { color: var(--accent) !important; text-decoration: none !important; }
+    .editor-content a:hover { text-decoration: underline !important; }
+    .editor-content hr { display: block !important; border: none !important; border-top: 1px solid var(--border) !important; margin: 1.5em 0 !important; }
+    .editor-content table { border-collapse: collapse !important; width: 100% !important; margin: 0.8em 0 !important; display: block !important; overflow-x: auto; }
+    .editor-content th, .editor-content td { border: 1px solid var(--border) !important; padding: 8px 12px !important; }
+    .editor-content th { background: var(--bg-sidebar) !important; }
 
     /* 待办事项 - 复选框样式 */
-    .editor-content ul li {
-      list-style: none !important;
-      margin-left: -1.5em !important;
-    }
-
+    .editor-content ul li { list-style: none !important; margin-left: -1.5em !important; }
     .editor-content ul li input[type="checkbox"] {
       appearance: none !important;
       -webkit-appearance: none !important;
@@ -589,12 +214,10 @@
       vertical-align: middle !important;
       position: relative !important;
     }
-
     .editor-content ul li input[type="checkbox"]:checked {
       background: var(--accent) !important;
       border-color: var(--accent) !important;
     }
-
     .editor-content ul li input[type="checkbox"]:checked::after {
       content: '✓' !important;
       position: absolute !important;
@@ -624,7 +247,6 @@
       overflow: auto;
       box-sizing: border-box;
     }
-
     .source-textarea:focus {
       outline: none;
     }
@@ -648,9 +270,8 @@
       border-radius: 6px;
       padding: 4px;
       z-index: 10;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-
     .toolbar-btn {
       width: 28px;
       height: 26px;
@@ -665,129 +286,32 @@
       align-items: center;
       justify-content: center;
     }
-
-    .toolbar-btn:hover {
-      background: var(--bg-hover);
-      color: var(--text);
-    }
-
-    .toolbar-sep {
-      width: 1px;
-      height: 20px;
-      background: var(--border);
-      margin: 0 4px;
-    }
+    .toolbar-btn:hover { background: var(--bg-hover); color: var(--text); }
+    .toolbar-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 
     /* 空状态 */
-    .empty-state {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-muted);
-    }
-
-    .empty-state svg {
-      width: 48px;
-      height: 48px;
-      fill: var(--border);
-      margin-bottom: 16px;
-    }
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); }
+    .empty-state svg { width: 48px; height: 48px; fill: var(--border); margin-bottom: 16px; }
 
     /* 模态框 */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .modal {
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 20px;
-      width: 360px;
-    }
-
-    .modal h3 {
-      font-size: 14px;
-      margin-bottom: 12px;
-    }
-
-    .modal input {
-      width: 100%;
-      padding: 8px 10px;
-      background: #3c3c3c;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      color: var(--text);
-      font-size: 13px;
-      outline: none;
-    }
-
-    .modal input:focus {
-      border-color: var(--accent);
-    }
-
-    .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 16px;
-    }
-
-    .modal-actions button {
-      padding: 6px 14px;
-      border-radius: 4px;
-      font-size: 12px;
-      cursor: pointer;
-    }
-
-    .modal-actions .cancel {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-
-    .modal-actions .confirm {
-      background: var(--accent);
-      border: none;
-      color: #fff;
-    }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: var(--bg-sidebar); border: 1px solid var(--border); border-radius: 8px; padding: 20px; width: 360px; }
+    .modal h3 { font-size: 14px; margin-bottom: 12px; }
+    .modal input { width: 100%; padding: 8px 10px; background: #3c3c3c; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; outline: none; }
+    .modal input:focus { border-color: var(--accent); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .modal-actions button { padding: 6px 14px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+    .modal-actions .cancel { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .modal-actions .confirm { background: var(--accent); border: none; color: #fff; }
 
     /* 提示 */
-    .toast {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%) translateY(60px);
-      background: var(--bg-sidebar);
-      border: 1px solid var(--border);
-      padding: 10px 20px;
-      border-radius: 6px;
-      font-size: 13px;
-      z-index: 200;
-      opacity: 0;
-      transition: all 0.3s;
-    }
-
-    .toast.show {
-      transform: translateX(-50%) translateY(0);
-      opacity: 1;
-    }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--bg-sidebar); border: 1px solid var(--border); padding: 10px 20px; border-radius: 6px; font-size: 13px; z-index: 200; opacity: 0; transition: all 0.3s; }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
     /* 隐藏的 textarea 用于存储纯文本 */
-    .hidden-textarea {
-      display: none;
-    }
+    .hidden-textarea { display: none; }
   </style>
 </head>
-
 <body>
   <div id="app"></div>
   <div id="modal"></div>
@@ -881,7 +405,6 @@
               <div class="editor-scroll-area">
                 <div class="editor-wrapper">
                   ${editorMode === 'wysiwyg' ? `
-                    <div class="line-numbers" id="wysiwyg-line-numbers"></div>
                     <div class="editor-content-wrapper">
                       <div class="editor-content" id="editor" contenteditable="true" spellcheck="false"></div>
                     </div>
@@ -913,7 +436,7 @@
     function getCaretPosition(element) {
       const selection = window.getSelection();
       if (!selection.rangeCount) return 0;
-
+      
       const range = selection.getRangeAt(0);
       const preRange = range.cloneRange();
       preRange.selectNodeContents(element);
@@ -926,13 +449,13 @@
       try {
         const selection = window.getSelection();
         const range = document.createRange();
-
+        
         let charCount = 0;
         let found = false;
-
+        
         function traverseNodes(node) {
           if (found) return;
-
+          
           if (node.nodeType === Node.TEXT_NODE) {
             const nextCount = charCount + node.length;
             if (position <= nextCount) {
@@ -948,9 +471,9 @@
             }
           }
         }
-
+        
         traverseNodes(element);
-
+        
         if (!found) {
           // 如果位置超出范围，将光标放在最后
           const lastChild = element.lastChild;
@@ -963,7 +486,7 @@
             }
           }
         }
-
+        
         selection.removeAllRanges();
         selection.addRange(range);
       } catch (e) {
@@ -1007,32 +530,26 @@
         editorMode = 'wysiwyg';
       }
       render();
-
+      
       // 切换后恢复位置和行号
       requestAnimationFrame(() => {
         setTimeout(() => {
           if (editorMode === 'wysiwyg') {
             // 恢复到所见即所得模式
             const newScrollArea = document.querySelector('.editor-scroll-area');
-            const lineNumbersEl = document.querySelector('.line-numbers');
-
             if (newScrollArea) {
               newScrollArea.scrollTop = savedScrollPosition;
             }
-            if (lineNumbersEl) {
-              lineNumbersEl.scrollTop = savedScrollPosition;
-            }
-
+            
             const editor = document.getElementById('editor');
             if (editor) {
               setCaretPosition(editor, savedCursorPosition);
             }
-            updateWysiwygLineNumbers();
           } else {
             // 恢复到源码模式
             const sourceEditor = document.getElementById('source-editor');
             const lineNumbersEl = document.getElementById('source-line-numbers');
-
+            
             if (sourceEditor) {
               sourceEditor.scrollTop = savedScrollPosition;
               sourceEditor.setSelectionRange(savedCursorPosition, savedCursorPosition);
@@ -1050,7 +567,7 @@
     function renderFileList(filter = '') {
       const el = document.getElementById('fileList');
       if (!el) return;
-      let filtered = files.filter(f => f.name.replace('.md', '').toLowerCase().includes(filter.toLowerCase()));
+      let filtered = files.filter(f => f.name.replace('.md','').toLowerCase().includes(filter.toLowerCase()));
       // 置顶文件排在前面
       filtered.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
       el.innerHTML = filtered.map(f => {
@@ -1099,7 +616,6 @@
 
         // 初始化待办复选框点击事件
         initCheckboxListeners();
-        updateWysiwygLineNumbers();
 
         // 监听输入变化
         editor.addEventListener('input', handleInput);
@@ -1148,26 +664,16 @@
           scroll: sourceScrollHandler
         };
       }
-
-      // 所见即所得模式：滚动容器滚动，行号跟随
-      if (editorMode === 'wysiwyg') {
-        const scrollArea = document.querySelector('.editor-scroll-area');
-        if (scrollArea) {
-          scrollArea.addEventListener('scroll', syncLineNumbersScroll);
-        }
-      }
     }
 
     // 移除编辑器事件监听器
     function removeEditorEventListeners() {
       const editor = document.getElementById('editor');
-      const scrollArea = document.querySelector('.editor-scroll-area');
       if (!editor || !editorEventHandlers) return;
       if (editorEventHandlers.input) editor.removeEventListener('input', editorEventHandlers.input);
       if (editorEventHandlers.keydown) editor.removeEventListener('keydown', editorEventHandlers.keydown);
       if (editorEventHandlers.paste) editor.removeEventListener('paste', editorEventHandlers.paste);
-      if (scrollArea) scrollArea.removeEventListener('scroll', syncLineNumbersScroll);
-      editorEventHandlers = { input: null, keydown: null, paste: null, scroll: null };
+      editorEventHandlers = { input: null, keydown: null, paste: null };
     }
 
     // 移除源码编辑器事件监听器
@@ -1181,27 +687,12 @@
       }
       sourceEventHandlers = { input: null, keydown: null, scroll: null };
     }
-
-    // 更新所见即所得模式的行号
-    function updateWysiwygLineNumbers() {
-      const lineNumbersEl = document.getElementById('wysiwyg-line-numbers');
-      const editor = document.getElementById('editor');
-      if (!lineNumbersEl || !editor) return;
-
-      const lines = rawMarkdown.split('\n');
-      let html = '';
-      for (let i = 0; i < lines.length; i++) {
-        const isEmpty = lines[i].trim() === '';
-        html += `<span class="${isEmpty ? 'empty-line' : ''}">${i + 1}</span>`;
-      }
-      lineNumbersEl.innerHTML = html;
-    }
-
+    
     // 更新源码模式的行号
     function updateSourceLineNumbers() {
       const lineNumbersEl = document.getElementById('source-line-numbers');
       if (!lineNumbersEl) return;
-
+      
       const lines = rawMarkdown.split('\n');
       let html = '';
       for (let i = 0; i < lines.length; i++) {
@@ -1209,17 +700,7 @@
       }
       lineNumbersEl.innerHTML = html;
     }
-
-    // 同步所见即所得模式滚动
-    // 统一滚动同步 - 由父容器滚动，行号自动跟随
-    function syncLineNumbersScroll() {
-      const scrollArea = document.querySelector('.editor-scroll-area');
-      const lineNumbersEl = document.querySelector('.line-numbers');
-      if (scrollArea && lineNumbersEl) {
-        lineNumbersEl.scrollTop = scrollArea.scrollTop;
-      }
-    }
-
+    
     // 同步源码模式滚动 - textarea 滚动，行号跟随
     function syncSourceLineNumbersScroll() {
       const sourceEditor = document.getElementById('source-editor');
@@ -1286,8 +767,6 @@
       convertMarkdownHeadings(editor);
       // 将 HTML 内容转换回 Markdown
       rawMarkdown = htmlToMarkdown(editor.innerHTML);
-      // 更新行号
-      updateWysiwygLineNumbers();
     }
 
     // 检测并转换 Markdown 语法
@@ -1636,7 +1115,6 @@
         }
         hasUnsavedChanges = true;
         updateSaveIndicator();
-        updateWysiwygLineNumbers();
         updateUndoRedoButtons();
       }
     }
@@ -1698,7 +1176,6 @@
         }
         hasUnsavedChanges = true;
         updateSaveIndicator();
-        updateWysiwygLineNumbers();
         updateUndoRedoButtons();
       }
     }
@@ -2290,5 +1767,4 @@
     loadFiles();
   </script>
 </body>
-
 </html>
