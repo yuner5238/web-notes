@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Editor - VS Code Style</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>📝 笔记</h1>
+                <button id="newNoteBtn" class="btn btn-primary" title="新建笔记">+ 新建</button>
+            </div>
+            <div class="sidebar-actions">
+                <button id="selectFolderBtn" class="btn btn-secondary">📂 授权访问目录</button>
+                <div id="folderStatus" class="folder-status">等待授权...</div>
+            </div>
+            <div id="fileList" class="file-list">
+                <div class="empty-state">
+                    <p>点击上方按钮授权访问项目目录</p>
+                    <p style="margin-top: 8px; font-size: 12px;">系统将自动定位 notes 文件夹</p>
+                </div>
+            </div>
+        </aside>
+        <!-- 主编辑区域 -->
+        <main class="main-content">
+            <div class="editor-header">
+                <div class="file-info">
+                    <span id="currentFileName">未打开文件</span>
+                    <span id="saveStatus" class="save-status"></span>
+                </div>
+                <div class="editor-toolbar">
+                    <button class="toolbar-btn" data-action="bold" title="粗体 (Ctrl+B)"><b>B</b></button>
+                    <button class="toolbar-btn" data-action="italic" title="斜体 (Ctrl+I)"><i>I</i></button>
+                    <button class="toolbar-btn" data-action="heading" title="标题">#</button>
+                    <button class="toolbar-btn" data-action="link" title="链接">🔗</button>
+                    <button class="toolbar-btn" data-action="list" title="列表">•</button>
+                    <button class="toolbar-btn" data-action="code" title="代码">{'<>'}</button>
+                    <button class="toolbar-btn" data-action="quote" title="引用">❝</button>
+                    <button class="toolbar-btn" id="modeToggleBtn" title="切换编辑模式 (Ctrl+Shift+M)" style="width: auto; padding: 0 10px; font-size: 11px; font-weight: 500;">源码</button>
+                </div>
+            </div>
+            
+            <div class="editor-container">
+                <div id="editor" class="editor" contenteditable="true" spellcheck="false">
+                    <div class="editor-placeholder">
+                        <p>请从左侧选择一个笔记文件开始编辑，或点击"新建"创建新笔记</p>
+                        <p class="hint">💡 提示：首次使用请点击左侧"授权访问目录"按钮</p>
+                    </div>
+                </div>
+                <textarea id="sourceEditor" class="source-editor hidden" spellcheck="false" placeholder="Markdown 源码模式..."></textarea>
+            </div>
+        </main>
+    </div>
+    <!-- 新建笔记对话框 -->
+    <div id="newNoteModal" class="modal">
+        <div class="modal-content">
+            <h3>新建笔记</h3>
+            <input type="text" id="newNoteName" placeholder="输入笔记文件名（无需 .md 后缀）" autocomplete="off">
+            <div class="modal-actions">
+                <button id="cancelNewNote" class="btn btn-secondary">取消</button>
+                <button id="confirmNewNote" class="btn btn-primary">创建</button>
+            </div>
+        </div>
+    </div>
+    <script src="js/main.js"></script>
+</body>
+</html>
